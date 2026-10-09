@@ -193,3 +193,23 @@ func TestDisplayWidthCountsEmojiAsTwoColumns(t *testing.T) {
 		}
 	}
 }
+
+func TestHeaderAndBarStayWithinNarrowTerminal(t *testing.T) {
+	var out, errw bytes.Buffer
+	p := New(&out, &errw, Normal, true, false, 12)
+	p.PageStart(1, true, "Episode 13", "example.com")
+	line := strings.TrimSuffix(out.String(), "\n")
+	if w := displayWidth(line); w > 12 {
+		t.Fatalf("header width = %d, want <= 12 (%q)", w, line)
+	}
+
+	out.Reset()
+	p.Progress(5, 10)
+	bar := strings.TrimPrefix(out.String(), clearLine)
+	if w := displayWidth(bar); w > 12 {
+		t.Fatalf("bar width = %d, want <= 12 (%q)", w, bar)
+	}
+	if !strings.Contains(bar, "5/10") {
+		t.Fatalf("bar lost its count: %q", bar)
+	}
+}

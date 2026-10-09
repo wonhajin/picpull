@@ -106,7 +106,12 @@ func (p *Printer) PageStart(index int, multi bool, title, host string) {
 	}
 	title, host = clean(title), clean(host)
 	suffix := " — " + host
-	p.line(p.out, "%s%s%s", prefix, p.fit(title, displayWidth(prefix+suffix)), suffix)
+	header := prefix + p.fit(title, displayWidth(prefix+suffix)) + suffix
+	// On a terminal too narrow even for the shortened title, cut the whole line.
+	if p.tty && p.width > 0 {
+		header = truncate(header, p.width)
+	}
+	p.line(p.out, "%s", header)
 }
 
 // fit cuts title so the whole header stays on one terminal line. Piped
@@ -115,13 +120,17 @@ func (p *Printer) fit(title string, used int) string {
 	if !p.tty || p.width <= 0 {
 		return title
 	}
-	room := max(p.width-used, 10)
-	if displayWidth(title) <= room {
-		return title
+	return truncate(title, max(p.width-used, 10))
+}
+
+// truncate cuts s to at most room columns, ending it with an ellipsis.
+func truncate(s string, room int) string {
+	if displayWidth(s) <= room {
+		return s
 	}
 	var b strings.Builder
 	w := 0
-	for _, r := range title {
+	for _, r := range s {
 		rw := runeWidth(r)
 		if w+rw > room-1 {
 			break
@@ -166,9 +175,17 @@ func (p *Printer) Progress(done, total int) {
 	if !p.tty || p.level != Normal || total <= 0 {
 		return
 	}
-	filled := barWidth * done / total
-	bar := strings.Repeat("━", filled) + strings.Repeat("─", barWidth-filled)
-	fmt.Fprintf(p.out, "%s  %s  %d/%d", clearLine, bar, done, total)
+	count := fmt.Sprintf("%d/%d", done, total)
+	size := barWidth
+	if p.width > 0 {
+		// Two spaces on each side of the bar; a bar that fills the last
+		// column would wrap.
+		size = min(size, p.width-len(count)-5)
+	}
+	size = max(size, 0)
+	filled := size * done / total
+	bar := strings.Repeat("━", filled) + strings.Repeat("─", size-filled)
+	fmt.Fprintf(p.out, "%s  %s  %s", clearLine, bar, count)
 	p.barShown = true
 }
 
