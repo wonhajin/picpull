@@ -2,7 +2,11 @@ package pick
 
 import (
 	"bytes"
+	"encoding/binary"
 	"image"
+	"image/color"
+	"image/gif"
+	"image/jpeg"
 	"image/png"
 	"regexp"
 	"testing"
@@ -130,6 +134,40 @@ func TestDecodedSize(t *testing.T) {
 	if _, _, ok := DecodedSize([]byte("not an image")); ok {
 		t.Fatal("garbage decoded")
 	}
+}
+
+func TestDecodedSizeJPEGGIFWebP(t *testing.T) {
+	var jb, gb bytes.Buffer
+	jpeg.Encode(&jb, image.NewRGBA(image.Rect(0, 0, 30, 40)), nil)
+	gif.Encode(&gb, image.NewPaletted(image.Rect(0, 0, 30, 40), []color.Color{color.Black}), nil)
+
+	// A lossless WebP header is enough: DecodeConfig never reads the pixels.
+	webp := []byte("RIFF\x12\x00\x00\x00WEBPVP8L\x05\x00\x00\x00\x2f")
+	webp = binary.LittleEndian.AppendUint32(webp, 29|39<<14)
+	webp = append(webp, 0) // chunk padding
+
+	for name, body := range map[string][]byte{"jpeg": jb.Bytes(), "gif": gb.Bytes(), "webp": webp} {
+		if w, h, ok := DecodedSize(body); !ok || w != 30 || h != 40 {
+			t.Errorf("%s = %d %d %v", name, w, h, ok)
+		}
+	}
+}
+
+func TestSelectScopedDropsNetworkCandidates(t *testing.T) {
+	cands := []Candidate{
+		{URL: "https://e/dom.jpg", Kind: KindImg, InScope: true},
+		{URL: "https://e/net.jpg", Kind: KindNetwork},
+	}
+	equal(t, urls(Select(cands, Filter{Scoped: true})), []string{"https://e/dom.jpg"})
+	equal(t, urls(Select(cands, Filter{})), []string{"https://e/dom.jpg", "https://e/net.jpg"})
+}
+
+func TestSelectMinSizeKeepsHeightOnlyUnknown(t *testing.T) {
+	cands := []Candidate{
+		{URL: "https://e/a.jpg", Width: 50},
+		{URL: "https://e/b.jpg", Height: 50},
+	}
+	equal(t, urls(Select(cands, Filter{MinSize: 200})), []string{"https://e/a.jpg", "https://e/b.jpg"})
 }
 
 func TestSelectTallBackgroundDoesNotMergeGridRows(t *testing.T) {
