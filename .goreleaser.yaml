@@ -1,0 +1,41 @@
+version: 2
+project_name: picpull
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - main: ./cmd/picpull
+    binary: picpull
+    env:
+      - CGO_ENABLED=0
+    goos: [darwin, linux]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: checksums.txt
+
+homebrew_casks:
+  - name: picpull
+    binaries: [picpull]
+    homepage: https://github.com/wonhj12/picpull
+    description: Download the images on a web page in on-screen order
+    repository:
+      owner: wonhj12
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    hooks:
+      post:
+        # Unsigned binary: clear the quarantine flag so Gatekeeper does not
+        # block it. Temporary until the binary is signed and notarized.
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/picpull"]
+          end
