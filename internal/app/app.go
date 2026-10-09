@@ -251,6 +251,12 @@ func (r *runner) saveOne(c *output.Counts, namer *store.Namer, dir, pageURL stri
 		r.p.Image(output.Failed, cand.URL, firstLine(err))
 		return
 	}
+	if isHTML(ct, body) {
+		c.Fail++
+		r.failed = append(r.failed, cand.URL)
+		r.p.Image(output.Failed, cand.URL, "not an image (text/html)")
+		return
+	}
 	if r.o.MinSize > 0 && (cand.Width == 0 || cand.Height == 0) {
 		if w, h, ok := pick.DecodedSize(body); ok && (w < r.o.MinSize || h < r.o.MinSize) {
 			c.Skip++
@@ -271,6 +277,16 @@ func (r *runner) saveOne(c *output.Counts, namer *store.Namer, dir, pageURL stri
 	} else {
 		r.p.Image(output.Downloaded, cand.URL, name)
 	}
+}
+
+// isHTML reports whether a fetched body is an HTML document (login page, soft
+// 404) rather than an image. Without a Content-Type it sniffs the body.
+func isHTML(ct string, body []byte) bool {
+	if ct == "" {
+		ct = http.DetectContentType(body)
+	}
+	mt, _, _ := strings.Cut(ct, ";")
+	return strings.ToLower(strings.TrimSpace(mt)) == "text/html"
 }
 
 // interrupted reports Ctrl+C once, at the point the walk notices it.

@@ -71,6 +71,8 @@ func site(t *testing.T) *httptest.Server {
 <img src="/img/a.png"><a class="next" href="/gone">Next</a></body></html>`)
 	page("/ep/dead-frag", `<html><head><title>Dead</title></head><body>
 <img src="/img/a.png"><a class="next" href="/gone#top">Next</a></body></html>`)
+	page("/ep/softhtml", `<html><head><title>Soft</title></head><body><img src="/softhtml.png"></body></html>`)
+	page("/ep/softnoct", `<html><head><title>Soft</title></head><body><img src="/softnoct.png"></body></html>`)
 	page("/empty", `<html><head><title>Empty</title></head><body>no images</body></html>`)
 	mux.HandleFunc("/img/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "image/png")
@@ -79,6 +81,14 @@ func site(t *testing.T) *httptest.Server {
 	mux.HandleFunc("/icon.png", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "image/png")
 		w.Write(testbrowser.PNG(8, 8))
+	})
+	mux.HandleFunc("/softhtml.png", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprint(w, "<html><body>please log in</body></html>")
+	})
+	mux.HandleFunc("/softnoct.png", func(w http.ResponseWriter, r *http.Request) {
+		w.Header()["Content-Type"] = nil // stop net/http from sniffing one
+		fmt.Fprint(w, "<!DOCTYPE html><html><body>please log in</body></html>")
 	})
 	mux.HandleFunc("/gone", func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "gone", http.StatusNotFound)
@@ -200,6 +210,28 @@ func TestFollowNextWithOutAndFailures(t *testing.T) {
 		!strings.Contains(h.out.String(), "Done · 2 pages · 4 success · 0 skip · 1 fail") ||
 		!strings.Contains(h.errw.String(), "Failed:\n  "+ts.URL+"/missing.png") {
 		t.Fatalf("stdout = %s\nstderr = %s", h.out.String(), h.errw.String())
+	}
+}
+
+func TestHTMLResponseIsNotAnImage(t *testing.T) {
+	for _, name := range []string{"softhtml", "softnoct"} {
+		t.Run(name, func(t *testing.T) {
+			ts := site(t)
+			out := t.TempDir()
+			h := newHarness(t, output.Verbose)
+			code := Run(context.Background(), config.Options{URL: ts.URL + "/ep/" + name, Out: out, Level: output.Verbose}, h.deps)
+			if code != 1 {
+				t.Fatalf("code = %d, want 1", code)
+			}
+			if got := files(t, out); len(got) != 0 {
+				t.Fatalf("saved %v, want nothing", got)
+			}
+			if !strings.Contains(h.errw.String(), "failed      "+ts.URL+"/"+name+".png: not an image (text/html)") ||
+				!strings.Contains(h.out.String(), "Done · 0 success · 0 skip · 1 fail") ||
+				!strings.Contains(h.errw.String(), "Failed:\n  "+ts.URL+"/"+name+".png") {
+				t.Fatalf("stdout = %s\nstderr = %s", h.out.String(), h.errw.String())
+			}
+		})
 	}
 }
 
