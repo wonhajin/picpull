@@ -50,7 +50,7 @@ type Session struct {
 	seen   map[string]bool
 
 	reqs  map[network.RequestID]bool // requests seen since Reset
-	stale map[network.RequestID]bool // requests seen before the last Reset
+	stale map[network.RequestID]bool // requests of the page before the last Reset
 }
 
 func New(ctx context.Context) (*Session, error) {
@@ -173,12 +173,7 @@ func ok2xx(status int64) bool { return status >= 200 && status < 300 }
 func (s *Session) Reset() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.stale == nil {
-		s.stale = map[network.RequestID]bool{}
-	}
-	for id := range s.reqs {
-		s.stale[id] = true
-	}
+	s.stale = s.reqs
 	s.reqs = map[network.RequestID]bool{}
 	s.urlIDs = map[string][]network.RequestID{}
 	s.resp = map[network.RequestID]response{}
