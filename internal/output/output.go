@@ -130,13 +130,15 @@ func truncate(s string, room int) string {
 	}
 	var b strings.Builder
 	w := 0
+	var prev rune
 	for _, r := range s {
-		rw := runeWidth(r)
+		rw := runeWidth(prev, r)
 		if w+rw > room-1 {
 			break
 		}
 		b.WriteRune(r)
 		w += rw
+		prev = r
 	}
 	return b.String() + "…"
 }
@@ -251,14 +253,22 @@ func (p *Printer) Done(pages int, multi bool, c Counts, failed []string) {
 	}
 }
 
-// runeWidth is the number of terminal columns r takes: East Asian wide
-// characters and emoji are two, combining marks and joiners are zero.
-func runeWidth(r rune) int {
+// runeWidth is the number of terminal columns r takes after prev: East
+// Asian wide characters and emoji are two, combining marks and joiners
+// are zero. Parts of a ZWJ sequence are counted separately, since
+// terminals that can't join them draw each part.
+func runeWidth(prev, r rune) int {
 	switch {
 	case r == 0xfe0f:
-		// Emoji presentation selector: the preceding symbol renders as two
-		// columns, one of which it already counted.
-		return 1
+		// Emoji presentation selector widens a one-column symbol to two;
+		// an emoji already counted as two stays two.
+		if runeWidth(0, prev) == 1 {
+			return 1
+		}
+		return 0
+	case r >= 0x1f3fb && r <= 0x1f3ff && runeWidth(0, prev) == 2:
+		// Skin tone modifier merges into the emoji before it.
+		return 0
 	case unicode.In(r, unicode.Mn, unicode.Me, unicode.Cf):
 		return 0
 	case r >= 0x1f300 && r <= 0x1faff:
@@ -273,8 +283,10 @@ func runeWidth(r rune) int {
 
 func displayWidth(s string) int {
 	w := 0
+	var prev rune
 	for _, r := range s {
-		w += runeWidth(r)
+		w += runeWidth(prev, r)
+		prev = r
 	}
 	return w
 }
