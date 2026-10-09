@@ -1,10 +1,6 @@
 version: 2
 project_name: picpull
 
-before:
-  hooks:
-    - go mod tidy
-
 builds:
   - main: ./cmd/picpull
     binary: picpull
