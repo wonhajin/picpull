@@ -270,6 +270,7 @@ func (s *Session) ClickNext(target string, timeout time.Duration) (NextResult, i
 		return NextNotFound, n, err
 	}
 	deadline := time.Now().Add(timeout)
+	navigated := false
 	for time.Now().Before(deadline) {
 		if err := s.ctx.Err(); err != nil {
 			return NextNoNavigation, n, err
@@ -280,10 +281,16 @@ func (s *Session) ClickNext(target string, timeout time.Duration) (NextResult, i
 		if err != nil || now == before {
 			continue
 		}
+		navigated = true
+		// A heavy page may not finish loading in time; the URL change alone
+		// proves the click navigated.
 		ready, err := chromedp.Run(s.ctx, chromedp.Evaluate[string](`document.readyState`))
 		if err == nil && ready == "complete" {
-			return NextNavigated, n, nil
+			break
 		}
+	}
+	if navigated {
+		return NextNavigated, n, nil
 	}
 	return NextNoNavigation, n, nil
 }

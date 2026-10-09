@@ -33,6 +33,12 @@ func server(t *testing.T, pages map[string]string) *httptest.Server {
 	mux.HandleFunc("/old.png", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/img/new.png", http.StatusFound)
 	})
+	mux.HandleFunc("/hang.png", func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-r.Context().Done():
+		case <-time.After(3 * time.Second):
+		}
+	})
 	mux.HandleFunc("/img/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "image/png")
 		w.Write(testbrowser.PNG(30, 40))
@@ -199,6 +205,18 @@ func TestClickNext(t *testing.T) {
 	}
 	if res, _, _ := s.ClickNext("button.next", 300*time.Millisecond); res != NextNoNavigation {
 		t.Fatalf("locked = %v", res)
+	}
+}
+
+func TestClickNextSlowPageStillNavigated(t *testing.T) {
+	ts := server(t, map[string]string{
+		"/p1":   `<html><body><button class="next" onclick="location.href='/slow'">Next</button></body></html>`,
+		"/slow": `<html><body>two<img src="/hang.png"></body></html>`,
+	})
+	s := open(t, ts, "/p1")
+	res, _, err := s.ClickNext("button.next", 2*time.Second)
+	if err != nil || res != NextNavigated {
+		t.Fatalf("slow page = %v %v", res, err)
 	}
 }
 
