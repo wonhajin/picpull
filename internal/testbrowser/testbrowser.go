@@ -13,12 +13,12 @@ import (
 )
 
 // Find skips the test when no browser is available. PICPULL_TEST_BROWSER
-// points at an executable for machines without Chrome or Chromium installed.
+// points at an executable for machines without Chrome installed.
 func Find(t *testing.T) browser.Browser {
 	t.Helper()
-	b := browser.Browser{Name: "Chrome", Path: os.Getenv("PICPULL_TEST_BROWSER")}
+	b := browser.Browser{Path: os.Getenv("PICPULL_TEST_BROWSER")}
 	if b.Path == "" {
-		found, _, err := browser.Find("")
+		found, err := browser.Find()
 		if err != nil {
 			t.Skip("no browser: set PICPULL_TEST_BROWSER to run browser tests")
 		}

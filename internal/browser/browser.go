@@ -1,4 +1,4 @@
-// Package browser finds an installed Chromium or Chrome and starts it
+// Package browser finds an installed Google Chrome and starts it
 // headless. picpull never downloads a browser itself.
 package browser
 
@@ -14,10 +14,9 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
-var ErrNotFound = errors.New("Chromium or Chrome browser not found. Install Chromium or Google Chrome and try again.")
+var ErrNotFound = errors.New("Google Chrome not found. Install Google Chrome and try again.")
 
 type Browser struct {
-	Name string // "Chromium" or "Chrome"
 	Path string
 }
 
@@ -28,7 +27,7 @@ type finder struct {
 	lookPath func(string) (string, error)
 }
 
-func Find(pref string) (Browser, bool, error) {
+func Find() (Browser, error) {
 	home, _ := os.UserHomeDir()
 	return finder{
 		goos: runtime.GOOS,
@@ -38,23 +37,14 @@ func Find(pref string) (Browser, bool, error) {
 			return err == nil && !info.IsDir()
 		},
 		lookPath: exec.LookPath,
-	}.find(pref)
+	}.find()
 }
 
-// find tries Chromium, then Chrome. The second result is true when Chrome
-// was used only because Chromium is missing. A forced choice never falls back.
-func (f finder) find(pref string) (Browser, bool, error) {
-	if pref == "" || pref == "chromium" {
-		if p, ok := f.locate(f.chromiumPaths(), "chromium", "chromium-browser"); ok {
-			return Browser{Name: "Chromium", Path: p}, false, nil
-		}
+func (f finder) find() (Browser, error) {
+	if p, ok := f.locate(f.chromePaths(), "google-chrome", "google-chrome-stable"); ok {
+		return Browser{Path: p}, nil
 	}
-	if pref == "" || pref == "chrome" {
-		if p, ok := f.locate(f.chromePaths(), "google-chrome", "google-chrome-stable"); ok {
-			return Browser{Name: "Chrome", Path: p}, pref == "", nil
-		}
-	}
-	return Browser{}, false, ErrNotFound
+	return Browser{}, ErrNotFound
 }
 
 func (f finder) locate(paths []string, names ...string) (string, bool) {
@@ -69,14 +59,6 @@ func (f finder) locate(paths []string, names ...string) (string, bool) {
 		}
 	}
 	return "", false
-}
-
-func (f finder) chromiumPaths() []string {
-	if f.goos != "darwin" {
-		return nil
-	}
-	app := "Chromium.app/Contents/MacOS/Chromium"
-	return []string{filepath.Join("/Applications", app), filepath.Join(f.home, "Applications", app)}
 }
 
 func (f finder) chromePaths() []string {
@@ -100,7 +82,7 @@ func Start(parent context.Context, b Browser) (context.Context, context.CancelFu
 	// The first Do starts the browser and binds its life to ctx.
 	if err := chromedp.Do(ctx); err != nil {
 		cancel()
-		return nil, nil, fmt.Errorf("could not start %s: %w", b.Name, err)
+		return nil, nil, fmt.Errorf("could not start Chrome: %w", err)
 	}
 	return ctx, cancel, nil
 }

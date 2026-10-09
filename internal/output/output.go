@@ -72,18 +72,6 @@ func (p *Printer) line(w io.Writer, format string, args ...any) {
 	fmt.Fprintf(w, format+"\n", args...)
 }
 
-func (p *Printer) BrowserUsed(name string, fellBack bool) {
-	if p.level == Quiet {
-		return
-	}
-	if fellBack {
-		p.line(p.out, "Using %s (Chromium not found)", name)
-	} else {
-		p.line(p.out, "Using %s", name)
-	}
-	p.line(p.out, "")
-}
-
 func (p *Printer) PageStart(index int, multi bool, title, host string) {
 	if p.level == Quiet {
 		return

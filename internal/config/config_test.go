@@ -30,7 +30,7 @@ func TestDefaults(t *testing.T) {
 	}
 	if o.URL != "https://example.com/a" || o.DownloadDir != "/home/u/Downloads" ||
 		o.Delay != 2*time.Second || o.Level != output.Normal || o.Out != "" ||
-		o.MaxPages != 0 || o.MinSize != 0 || o.Match != nil || o.Browser != "" {
+		o.MaxPages != 0 || o.MinSize != 0 || o.Match != nil {
 		t.Fatalf("defaults = %+v", o)
 	}
 }
@@ -38,14 +38,13 @@ func TestDefaults(t *testing.T) {
 func TestFlagsAfterURL(t *testing.T) {
 	o, err := Parse([]string{"https://e.com", "-v", "-o", "~/pics", "--next", "다음 >",
 		"--max-pages", "5", "--delay", "0.5", "--min-size", "200", "--in", "#c",
-		"--match", `\d+\.jpg$`, "--all-network", "--keep-names", "--browser", "chrome"}, env(nil, nil))
+		"--match", `\d+\.jpg$`, "--all-network", "--keep-names"}, env(nil, nil))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if o.Level != output.Verbose || o.Out != "/home/u/pics" || o.Next != "다음 >" ||
 		o.MaxPages != 5 || o.Delay != 500*time.Millisecond || o.MinSize != 200 ||
-		o.In != "#c" || !o.Match.MatchString("x/12.jpg") || !o.AllNetwork || !o.KeepNames ||
-		o.Browser != "chrome" {
+		o.In != "#c" || !o.Match.MatchString("x/12.jpg") || !o.AllNetwork || !o.KeepNames {
 		t.Fatalf("options = %+v", o)
 	}
 }
@@ -54,7 +53,6 @@ func TestConfigFileThenFlagsOverride(t *testing.T) {
 	files := map[string]string{"/home/u/.config/picpull/config.toml": `
 download-dir = "~/Pictures"
 delay = 1
-browser = "chromium"
 min-size = 100
 keep-names = true
 `}
@@ -62,7 +60,7 @@ keep-names = true
 	if err != nil {
 		t.Fatal(err)
 	}
-	if o.DownloadDir != "/home/u/Pictures" || o.Delay != time.Second || o.Browser != "chromium" ||
+	if o.DownloadDir != "/home/u/Pictures" || o.Delay != time.Second ||
 		o.MinSize != 300 || !o.KeepNames {
 		t.Fatalf("options = %+v", o)
 	}
@@ -124,7 +122,6 @@ func TestErrors(t *testing.T) {
 		{[]string{"https://a", "https://b"}, nil, "expected one URL, got 2"},
 		{[]string{"example.com"}, nil, "URL must start with http:// or https://"},
 		{[]string{"https://a", "-v", "-q"}, nil, "-v and -q cannot be used together"},
-		{[]string{"https://a", "--browser", "firefox"}, nil, "--browser must be chromium or chrome"},
 		{[]string{"https://a", "--match", "("}, nil, "invalid --match regex: "},
 		{[]string{"https://a", "--delay", "-1"}, nil, "--delay must not be negative"},
 		{[]string{"https://a", "--max-pages", "-1"}, nil, "--max-pages must not be negative"},

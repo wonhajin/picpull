@@ -32,7 +32,6 @@ type Options struct {
 	Match       *regexp.Regexp
 	AllNetwork  bool
 	KeepNames   bool
-	Browser     string // "", "chromium" or "chrome"
 	Level       output.Level
 	ShowVersion bool
 }
@@ -50,17 +49,16 @@ type fileConfig struct {
 	Delay       *float64 `toml:"delay"`
 	MaxPages    *int     `toml:"max-pages"`
 	MinSize     *int     `toml:"min-size"`
-	Browser     *string  `toml:"browser"`
 	KeepNames   *bool    `toml:"keep-names"`
 	AllNetwork  *bool    `toml:"all-network"`
 }
 
 type flagValues struct {
-	out, next, in, match, browser string
-	maxPages, minSize             int
-	delay                         float64
-	allNetwork, keepNames         bool
-	verbose, quiet                bool
+	out, next, in, match  string
+	maxPages, minSize     int
+	delay                 float64
+	allNetwork, keepNames bool
+	verbose, quiet        bool
 }
 
 func newFlagSet(v *flagValues) *pflag.FlagSet {
@@ -76,7 +74,6 @@ func newFlagSet(v *flagValues) *pflag.FlagSet {
 	fs.StringVar(&v.match, "match", "", "only images whose URL matches this regular expression")
 	fs.BoolVar(&v.allNetwork, "all-network", false, "also save every image the page loaded over the network")
 	fs.BoolVar(&v.keepNames, "keep-names", false, "keep original file names instead of 001, 002, ...")
-	fs.StringVar(&v.browser, "browser", "", "use only this browser: chromium or chrome")
 	fs.BoolVarP(&v.verbose, "verbose", "v", false, "show every image")
 	fs.BoolVarP(&v.quiet, "quiet", "q", false, "show only the final summary")
 	fs.BoolP("help", "h", false, "show this help")
@@ -154,9 +151,6 @@ func Parse(args []string, env Env) (Options, error) {
 	if fs.Changed("min-size") {
 		o.MinSize = v.minSize
 	}
-	if fs.Changed("browser") {
-		o.Browser = v.browser
-	}
 	if fs.Changed("all-network") {
 		o.AllNetwork = v.allNetwork
 	}
@@ -176,8 +170,6 @@ func Parse(args []string, env Env) (Options, error) {
 
 func validate(o Options) error {
 	switch {
-	case o.Browser != "" && o.Browser != "chromium" && o.Browser != "chrome":
-		return errors.New("--browser must be chromium or chrome")
 	case o.Delay < 0:
 		return errors.New("--delay must not be negative")
 	case o.MaxPages < 0:
@@ -223,9 +215,6 @@ func applyFile(o *Options, env Env) error {
 	}
 	if fc.MinSize != nil {
 		o.MinSize = *fc.MinSize
-	}
-	if fc.Browser != nil {
-		o.Browser = *fc.Browser
 	}
 	if fc.KeepNames != nil {
 		o.KeepNames = *fc.KeepNames

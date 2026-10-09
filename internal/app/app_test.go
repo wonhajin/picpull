@@ -30,7 +30,7 @@ func newHarness(t *testing.T, level output.Level) *harness {
 	h := &harness{}
 	h.deps = Deps{
 		Printer:     output.New(&h.out, &h.errw, level, false, false, 0),
-		FindBrowser: func(string) (browser.Browser, bool, error) { return b, false, nil },
+		FindBrowser: func() (browser.Browser, error) { return b, nil },
 		HTTP:        &http.Client{Timeout: 5 * time.Second},
 		Sleep:       func(context.Context, time.Duration) {},
 	}
@@ -237,10 +237,10 @@ func TestBrowserNotFound(t *testing.T) {
 	var out, errw bytes.Buffer
 	d := Deps{
 		Printer:     output.New(&out, &errw, output.Normal, false, false, 0),
-		FindBrowser: func(string) (browser.Browser, bool, error) { return browser.Browser{}, false, browser.ErrNotFound },
+		FindBrowser: func() (browser.Browser, error) { return browser.Browser{}, browser.ErrNotFound },
 	}
 	code := Run(context.Background(), config.Options{URL: "https://e.com"}, d)
-	want := "Error: Chromium or Chrome browser not found. Install Chromium or Google Chrome and try again.\n"
+	want := "Error: Google Chrome not found. Install Google Chrome and try again.\n"
 	if code != 1 || errw.String() != want {
 		t.Fatalf("code = %d stderr = %q", code, errw.String())
 	}

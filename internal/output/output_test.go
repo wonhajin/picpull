@@ -13,7 +13,6 @@ func newPlain(level Level) (*Printer, *bytes.Buffer, *bytes.Buffer) {
 
 func TestNormalSinglePage(t *testing.T) {
 	p, out, errw := newPlain(Normal)
-	p.BrowserUsed("Chrome", true)
 	p.PageStart(1, false, "Sunset Gallery", "example.com")
 	p.PageURL("https://example.com/a")
 	p.Found(42)
@@ -22,8 +21,7 @@ func TestNormalSinglePage(t *testing.T) {
 	p.PageSummary(Counts{Success: 40, Skip: 2})
 	p.Done(1, false, Counts{Success: 40, Skip: 2}, nil)
 
-	want := "Using Chrome (Chromium not found)\n\n" +
-		"▸ Sunset Gallery — example.com\n" +
+	want := "▸ Sunset Gallery — example.com\n" +
 		"  Found 42 images\n" +
 		"  ✓ 40 success · 2 skip · 0 fail\n" +
 		"\nDone · 40 success · 2 skip · 0 fail\n"
@@ -37,7 +35,6 @@ func TestNormalSinglePage(t *testing.T) {
 
 func TestNormalMultiPageWithFailures(t *testing.T) {
 	p, out, errw := newPlain(Normal)
-	p.BrowserUsed("Chromium", false)
 	p.PageStart(2, true, "Episode 13", "example.com")
 	p.Found(1)
 	p.NoImages()
@@ -45,8 +42,7 @@ func TestNormalMultiPageWithFailures(t *testing.T) {
 	p.Stopped("next button did not navigate.", false)
 	p.Done(3, true, Counts{Success: 77, Fail: 2}, []string{"https://x/7.jpg", "https://x/22.jpg"})
 
-	wantOut := "Using Chromium\n\n" +
-		"▸ [002] Episode 13 — example.com\n" +
+	wantOut := "▸ [002] Episode 13 — example.com\n" +
 		"  Found 1 image\n" +
 		"Stopped: next button did not navigate.\n" +
 		"\nDone · 3 pages · 77 success · 0 skip · 2 fail\n"
@@ -91,7 +87,6 @@ func TestVerboseImageLines(t *testing.T) {
 
 func TestQuietShowsOnlySummaryAndErrors(t *testing.T) {
 	p, out, errw := newPlain(Quiet)
-	p.BrowserUsed("Chrome", false)
 	p.PageStart(1, false, "T", "h")
 	p.Found(3)
 	p.NoImages()

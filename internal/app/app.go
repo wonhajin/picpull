@@ -28,7 +28,7 @@ const (
 
 type Deps struct {
 	Printer     *output.Printer
-	FindBrowser func(pref string) (browser.Browser, bool, error)
+	FindBrowser func() (browser.Browser, error)
 	HTTP        *http.Client
 	Sleep       func(context.Context, time.Duration)
 }
@@ -53,12 +53,11 @@ type runner struct {
 
 func Run(ctx context.Context, o config.Options, d Deps) int {
 	p := d.Printer
-	b, fellBack, err := d.FindBrowser(o.Browser)
+	b, err := d.FindBrowser()
 	if err != nil {
 		p.Error(err.Error())
 		return 1
 	}
-	p.BrowserUsed(b.Name, fellBack)
 	bctx, cancel, err := browser.Start(ctx, b)
 	if err != nil {
 		p.Error(err.Error())
@@ -67,7 +66,7 @@ func Run(ctx context.Context, o config.Options, d Deps) int {
 	defer cancel()
 	s, err := page.New(bctx)
 	if err != nil {
-		p.Error(fmt.Sprintf("could not start %s: %v", b.Name, err))
+		p.Error(fmt.Sprintf("could not start Chrome: %v", err))
 		return 1
 	}
 	r := &runner{ctx: ctx, o: o, d: d, p: p, s: s}
