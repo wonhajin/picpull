@@ -1,0 +1,29 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [develop, main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: vet
+        run: go vet ./...
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - name: test
+        # Point at the runner's Chrome explicitly so a missing browser fails
+        # the browser tests instead of silently skipping them.
+        run: |
+          PICPULL_TEST_BROWSER="$(command -v google-chrome)" || { echo "google-chrome not found"; exit 1; }
+          export PICPULL_TEST_BROWSER
+          go test -race ./...
