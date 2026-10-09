@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net/http"
 	"net/url"
 	"os"
 	"path"
@@ -25,6 +26,19 @@ var contentTypeExt = map[string]string{
 	"image/webp":    ".webp",
 	"image/avif":    ".avif",
 	"image/svg+xml": ".svg",
+	"image/bmp":     ".bmp",
+	"image/x-icon":  ".ico",
+	"image/heic":    ".heic",
+	"image/heif":    ".heif",
+	"image/tiff":    ".tiff",
+}
+
+// urlExt lists the URL extensions trusted as image extensions; anything else
+// (".php", "." or a long garbage suffix) falls back to the content type.
+var urlExt = map[string]bool{
+	".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true,
+	".avif": true, ".svg": true, ".bmp": true, ".ico": true, ".heic": true,
+	".heif": true, ".tif": true, ".tiff": true,
 }
 
 // SanitizeName turns a page title into a folder or file name. Only what
@@ -114,17 +128,29 @@ func Exists(dir, stem string) bool {
 	return false
 }
 
-func ExtOf(rawURL, contentType string) string {
+// ExtOf picks a file extension: a known image extension from the URL, else
+// the Content-Type, else the type sniffed from body, else ".jpg".
+func ExtOf(rawURL, contentType string, body []byte) string {
 	if u, err := url.Parse(rawURL); err == nil {
-		if ext := strings.ToLower(path.Ext(u.Path)); ext != "" {
+		if ext := strings.ToLower(path.Ext(u.Path)); urlExt[ext] {
 			return ext
 		}
 	}
-	mime := strings.ToLower(strings.TrimSpace(strings.Split(contentType, ";")[0]))
-	if ext, ok := contentTypeExt[mime]; ok {
+	if ext, ok := extOfMIME(contentType); ok {
 		return ext
 	}
+	if len(body) > 0 {
+		if ext, ok := extOfMIME(http.DetectContentType(body)); ok {
+			return ext
+		}
+	}
 	return ".jpg"
+}
+
+func extOfMIME(contentType string) (string, bool) {
+	mime := strings.ToLower(strings.TrimSpace(strings.Split(contentType, ";")[0]))
+	ext, ok := contentTypeExt[mime]
+	return ext, ok
 }
 
 // Save writes to a .part file first and renames it, so an interrupted
@@ -133,7 +159,7 @@ func Save(dir, stem, rawURL, contentType string, body []byte) (string, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
-	name := stem + ExtOf(rawURL, contentType)
+	name := stem + ExtOf(rawURL, contentType, body)
 	dest := filepath.Join(dir, name)
 	tmp := dest + ".part"
 	if err := os.WriteFile(tmp, body, 0o644); err != nil {

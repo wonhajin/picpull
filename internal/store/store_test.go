@@ -122,14 +122,29 @@ func TestExistsIgnoresPart(t *testing.T) {
 }
 
 func TestExtOf(t *testing.T) {
-	cases := []struct{ url, ct, want string }{
-		{"https://x/a.JPG?w=1", "", ".jpg"},
-		{"https://x/a", "image/webp; charset=x", ".webp"},
-		{"https://x/a", "", ".jpg"},
-		{"https://x/a.png", "image/jpeg", ".png"},
+	png := []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR")
+	long := "https://x/a." + strings.Repeat("z", 300)
+	cases := []struct {
+		url, ct string
+		body    []byte
+		want    string
+	}{
+		{"https://x/a.JPG?w=1", "", nil, ".jpg"},
+		{"https://x/a", "image/webp; charset=x", nil, ".webp"},
+		{"https://x/a", "", nil, ".jpg"},
+		{"https://x/a.png", "image/jpeg", nil, ".png"},
+		{"https://x/a.tiff", "", nil, ".tiff"},
+		{"https://x/image.php?id=3", "image/png", nil, ".png"},
+		{"https://x/image.php?id=3", "", png, ".png"},
+		{"https://x/image.php?id=3", "text/html", png, ".png"},
+		{"https://x/image.php?id=3", "", nil, ".jpg"},
+		{"https://x/a.", "image/gif", nil, ".gif"},
+		{"https://x/a.", "", nil, ".jpg"},
+		{long, "image/webp", nil, ".webp"},
+		{long, "", nil, ".jpg"},
 	}
 	for _, c := range cases {
-		if got := ExtOf(c.url, c.ct); got != c.want {
+		if got := ExtOf(c.url, c.ct, c.body); got != c.want {
 			t.Errorf("ExtOf(%q,%q) = %q, want %q", c.url, c.ct, got, c.want)
 		}
 	}
