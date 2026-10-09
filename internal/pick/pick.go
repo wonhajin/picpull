@@ -200,7 +200,9 @@ func keep(c Candidate, f Filter) bool {
 
 // readingOrder groups boxes into rows by vertical overlap, then reads rows
 // top to bottom and each row left to right. Comparing tops alone would put a
-// taller image on the right before its shorter neighbor on the left.
+// taller image on the right before its shorter neighbor on the left. A box
+// joins a row only if it starts above the bottom of every box already in it,
+// so one tall box (a background wrapper) cannot swallow the rows below it.
 func readingOrder(cs []Candidate) []Candidate {
 	sort.SliceStable(cs, func(i, j int) bool { return cs[i].Y < cs[j].Y })
 	var out []Candidate
@@ -208,7 +210,7 @@ func readingOrder(cs []Candidate) []Candidate {
 		bottom := cs[i].Y + cs[i].BoxH
 		j := i + 1
 		for j < len(cs) && cs[j].Y < bottom {
-			bottom = max(bottom, cs[j].Y+cs[j].BoxH)
+			bottom = min(bottom, cs[j].Y+cs[j].BoxH)
 			j++
 		}
 		row := cs[i:j]

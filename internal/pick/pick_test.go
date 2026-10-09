@@ -131,3 +131,14 @@ func TestDecodedSize(t *testing.T) {
 		t.Fatal("garbage decoded")
 	}
 }
+
+func TestSelectTallBackgroundDoesNotMergeGridRows(t *testing.T) {
+	cands := []Candidate{
+		{URL: "bg", Positioned: true, X: 0, Y: 0, BoxH: 5000},
+		{URL: "d", Positioned: true, X: 300, Y: 400, BoxH: 100},
+		{URL: "b", Positioned: true, X: 300, Y: 100, BoxH: 100},
+		{URL: "c", Positioned: true, X: 0, Y: 400, BoxH: 100},
+		{URL: "a", Positioned: true, X: 0, Y: 100, BoxH: 100},
+	}
+	equal(t, urls(Select(cands, Filter{})), []string{"bg", "a", "b", "c", "d"})
+}
