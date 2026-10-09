@@ -322,3 +322,18 @@ func TestLateResponseOfResetPageIsDropped(t *testing.T) {
 		t.Fatal("late response of the old page was recorded")
 	}
 }
+
+func TestFetchInPageTimesOut(t *testing.T) {
+	ts := server(t, map[string]string{"/g": gallery})
+	s := open(t, ts, "/g")
+	old := fetchTimeout
+	fetchTimeout = 300 * time.Millisecond
+	t.Cleanup(func() { fetchTimeout = old })
+	start := time.Now()
+	if _, _, err := s.FetchInPage(ts.URL + "/hang.png"); err == nil {
+		t.Fatal("hanging fetch returned no error")
+	}
+	if d := time.Since(start); d > 2*time.Second {
+		t.Fatalf("returned after %v, want about the timeout", d)
+	}
+}

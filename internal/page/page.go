@@ -22,10 +22,10 @@ import (
 	"github.com/wonhj12/picpull/internal/pick"
 )
 
-const (
-	eventErrorWait = 100 * time.Millisecond
-	fetchTimeout   = 30 * time.Second
-)
+const eventErrorWait = 100 * time.Millisecond
+
+// fetchTimeout bounds one in-page fetch; a var so tests can shorten it.
+var fetchTimeout = 30 * time.Second
 
 type NextResult int
 
@@ -250,7 +250,9 @@ func (s *Session) FetchInPage(url string) ([]byte, string, error) {
 		Type   string `json:"type"`
 		Data   string `json:"data"`
 	}
-	r, err := chromedp.Run(s.ctx, chromedp.Evaluate[result](call(fetchJS, url), chromedp.EvalAwaitPromise))
+	ctx, cancel := context.WithTimeout(s.ctx, fetchTimeout)
+	defer cancel()
+	r, err := chromedp.Run(ctx, chromedp.Evaluate[result](call(fetchJS, url), chromedp.EvalAwaitPromise))
 	if err != nil {
 		return nil, "", err
 	}
