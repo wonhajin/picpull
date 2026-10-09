@@ -178,3 +178,18 @@ func TestPageStringsAreStrippedOfControlCharacters(t *testing.T) {
 		t.Fatalf("printable Unicode lost: %q", out.String())
 	}
 }
+
+func TestDisplayWidthCountsEmojiAsTwoColumns(t *testing.T) {
+	for s, want := range map[string]int{
+		"abc": 3,
+		"가":   2,
+		"😀":   2,
+		"❤️":  2,
+		"é":  1,
+		"👨‍👩": 4,
+	} {
+		if got := displayWidth(s); got != want {
+			t.Errorf("displayWidth(%q) = %d, want %d", s, got, want)
+		}
+	}
+}

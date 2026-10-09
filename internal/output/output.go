@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"unicode"
 
 	"golang.org/x/text/width"
 )
@@ -233,9 +234,19 @@ func (p *Printer) Done(pages int, multi bool, c Counts, failed []string) {
 	}
 }
 
-// runeWidth counts East Asian wide characters (Hangul, CJK) as two
-// terminal columns.
+// runeWidth is the number of terminal columns r takes: East Asian wide
+// characters and emoji are two, combining marks and joiners are zero.
 func runeWidth(r rune) int {
+	switch {
+	case r == 0xfe0f:
+		// Emoji presentation selector: the preceding symbol renders as two
+		// columns, one of which it already counted.
+		return 1
+	case unicode.In(r, unicode.Mn, unicode.Me, unicode.Cf):
+		return 0
+	case r >= 0x1f300 && r <= 0x1faff:
+		return 2
+	}
 	switch width.LookupRune(r).Kind() {
 	case width.EastAsianWide, width.EastAsianFullwidth:
 		return 2
