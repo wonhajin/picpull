@@ -3,6 +3,7 @@
 package store
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -143,7 +144,7 @@ func Exists(dir, stem string) bool {
 }
 
 // ExtOf picks a file extension: a known image extension from the URL, else
-// the Content-Type, else the type sniffed from body, else ".jpg".
+// the Content-Type, else the type sniffed from body (including SVG), else ".jpg".
 func ExtOf(rawURL, contentType string, body []byte) string {
 	if u, err := url.Parse(rawURL); err == nil {
 		if ext := strings.ToLower(path.Ext(u.Path)); urlExt[ext] {
@@ -157,8 +158,22 @@ func ExtOf(rawURL, contentType string, body []byte) string {
 		if ext, ok := extOfMIME(http.DetectContentType(body)); ok {
 			return ext
 		}
+		if isSVG(body) {
+			return ".svg"
+		}
 	}
 	return ".jpg"
+}
+
+// isSVG reports whether body looks like an SVG document, which
+// http.DetectContentType reports as plain text or XML.
+func isSVG(body []byte) bool {
+	head := bytes.ToLower(body[:min(len(body), 1024)])
+	head = bytes.TrimLeft(bytes.TrimPrefix(head, []byte("\xef\xbb\xbf")), " \t\r\n")
+	if !bytes.HasPrefix(head, []byte("<?xml")) && !bytes.HasPrefix(head, []byte("<svg")) {
+		return false
+	}
+	return bytes.Contains(head, []byte("<svg"))
 }
 
 func extOfMIME(contentType string) (string, bool) {
