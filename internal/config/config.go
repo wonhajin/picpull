@@ -124,7 +124,7 @@ func Parse(args []string, env Env) (Options, error) {
 		return o, errors.New("missing URL")
 	case len(rest) > 1:
 		return o, fmt.Errorf("expected one URL, got %d", len(rest))
-	case !strings.HasPrefix(rest[0], "http://") && !strings.HasPrefix(rest[0], "https://"):
+	case !hasHTTPScheme(rest[0]):
 		return o, errors.New("URL must start with http:// or https://")
 	}
 	o.URL = rest[0]
@@ -235,4 +235,11 @@ func expandHome(p, home string) string {
 		return filepath.Join(home, p[2:])
 	}
 	return p
+}
+
+// hasHTTPScheme reports whether s starts with http:// or https://, ignoring
+// case as URL schemes do.
+func hasHTTPScheme(s string) bool {
+	s = strings.ToLower(s)
+	return strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://")
 }

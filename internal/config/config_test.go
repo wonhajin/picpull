@@ -138,3 +138,12 @@ func TestErrors(t *testing.T) {
 		}
 	}
 }
+
+func TestURLSchemeIsCaseInsensitive(t *testing.T) {
+	for _, u := range []string{"HTTP://example.com", "Https://example.com"} {
+		o, err := Parse([]string{u}, env(nil, nil))
+		if err != nil || o.URL != u {
+			t.Fatalf("Parse(%q) = %q, %v", u, o.URL, err)
+		}
+	}
+}
