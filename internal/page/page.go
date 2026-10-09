@@ -63,6 +63,9 @@ func New(ctx context.Context) (*Session, error) {
 				}
 				continue
 			}
+			if ev.Request == nil {
+				continue
+			}
 			s.recordRequest(ev.RequestID, ev.Request.URL)
 		}
 	}()
@@ -98,6 +101,9 @@ func (s *Session) recordRequest(id network.RequestID, url string) {
 // record stores the final response. Redirect hops are resolved at lookup
 // time, so the request and response events may arrive in either order.
 func (s *Session) record(ev network.EventResponseReceived) {
+	if ev.Response == nil {
+		return
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.resp[ev.RequestID] = response{id: ev.RequestID, status: ev.Response.Status, mime: ev.Response.MimeType}
