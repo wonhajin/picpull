@@ -144,17 +144,25 @@ func TestMinSizeAndRerunSkips(t *testing.T) {
 		t.Fatalf("files = %v", got)
 	}
 	h2 := newHarness(t, output.Normal)
-	Run(context.Background(), o, h2.deps)
+	if code := Run(context.Background(), o, h2.deps); code != 0 {
+		t.Fatalf("rerun code = %d %s", code, h2.errw.String())
+	}
 	if !strings.Contains(h2.out.String(), "Done · 0 success · 2 skip · 0 fail") {
 		t.Fatalf("rerun stdout = %s", h2.out.String())
 	}
 
 	// A leftover 001.png.part is an interrupted download: it must not count
 	// as the finished 001.png, so that image is fetched again.
-	os.Remove(filepath.Join(dir, "001.png"))
-	os.WriteFile(filepath.Join(dir, "001.png.part"), []byte("x"), 0o644)
+	if err := os.Remove(filepath.Join(dir, "001.png")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "001.png.part"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	h3 := newHarness(t, output.Normal)
-	Run(context.Background(), o, h3.deps)
+	if code := Run(context.Background(), o, h3.deps); code != 0 {
+		t.Fatalf("stale .part code = %d %s", code, h3.errw.String())
+	}
 	if !strings.Contains(h3.out.String(), "Done · 1 success · 1 skip · 0 fail") {
 		t.Fatalf("stale .part stdout = %s", h3.out.String())
 	}
@@ -303,7 +311,9 @@ func TestInterruptRemovesPartsAndReports(t *testing.T) {
 	h := newHarness(t, output.Normal)
 	h.deps.Printer = output.New(cancelOnWrite{&h.out, "Found ", cancel}, &h.errw, output.Normal, false, false, 0)
 	out := t.TempDir()
-	os.WriteFile(filepath.Join(out, "009.png.part"), []byte("x"), 0o644)
+	if err := os.WriteFile(filepath.Join(out, "009.png.part"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	code := Run(ctx, config.Options{URL: ts.URL + "/ep/1", Out: out, Level: output.Normal}, h.deps)
 	if code != 1 {
