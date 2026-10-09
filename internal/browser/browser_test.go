@@ -61,3 +61,11 @@ func TestFindNothing(t *testing.T) {
 		t.Fatalf("message = %q", err.Error())
 	}
 }
+
+func TestFindApplicationsBeforePath(t *testing.T) {
+	onPath := map[string]string{"google-chrome": "/usr/local/bin/google-chrome"}
+	b, err := fakeFinder("darwin", []string{macChrome}, onPath).find()
+	if err != nil || b.Path != macChrome {
+		t.Fatalf("got %+v %v", b, err)
+	}
+}
