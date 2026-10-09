@@ -4,7 +4,7 @@ go 1.27.2
 
 require (
 	github.com/BurntSushi/toml v1.6.0
-	github.com/chromedp/cdproto v0.157.8
+	github.com/chromedp/cdproto v0.157.9
 	github.com/chromedp/chromedp v0.20.1
 	github.com/spf13/pflag v1.0.10
 	golang.org/x/image v0.46.0
