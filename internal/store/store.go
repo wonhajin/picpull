@@ -177,6 +177,7 @@ func Save(dir, stem, rawURL, contentType string, body []byte) (string, error) {
 	dest := filepath.Join(dir, name)
 	tmp := dest + ".part"
 	if err := os.WriteFile(tmp, body, 0o644); err != nil {
+		os.Remove(tmp)
 		return "", err
 	}
 	if err := os.Rename(tmp, dest); err != nil {
