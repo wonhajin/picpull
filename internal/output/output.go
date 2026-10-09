@@ -56,11 +56,29 @@ func New(out, errw io.Writer, level Level, tty, color bool, width int) *Printer 
 	return &Printer{out: out, errw: errw, level: level, tty: tty, color: color, width: width}
 }
 
-func (p *Printer) paint(code, s string) string {
+// styled is text that already carries the printer's own color codes; line
+// leaves it alone while it cleans every plain string argument.
+type styled string
+
+func (p *Printer) paint(code, s string) styled {
+	s = clean(s)
 	if !p.color {
-		return s
+		return styled(s)
 	}
-	return code + s + reset
+	return styled(code + s + reset)
+}
+
+// clean replaces control characters and bidi overrides with a space. Page
+// titles, URLs and error texts come from the page, and a raw escape sequence
+// in them could rewrite the terminal.
+func clean(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r < 0x20 || (r >= 0x7f && r <= 0x9f) ||
+			(r >= 0x202a && r <= 0x202e) || (r >= 0x2066 && r <= 0x2069) {
+			return ' '
+		}
+		return r
+	}, s)
 }
 
 func (p *Printer) line(w io.Writer, format string, args ...any) {
@@ -68,6 +86,11 @@ func (p *Printer) line(w io.Writer, format string, args ...any) {
 	if p.barShown {
 		fmt.Fprint(p.out, clearLine)
 		p.barShown = false
+	}
+	for i, a := range args {
+		if str, ok := a.(string); ok {
+			args[i] = clean(str)
+		}
 	}
 	fmt.Fprintf(w, format+"\n", args...)
 }
@@ -80,6 +103,7 @@ func (p *Printer) PageStart(index int, multi bool, title, host string) {
 	if multi {
 		prefix += fmt.Sprintf("[%03d] ", index)
 	}
+	title, host = clean(title), clean(host)
 	suffix := " — " + host
 	p.line(p.out, "%s%s%s", prefix, p.fit(title, displayWidth(prefix+suffix)), suffix)
 }

@@ -29,10 +29,11 @@ var contentTypeExt = map[string]string{
 
 // SanitizeName turns a page title into a folder or file name. Only what
 // macOS and Linux reject or mishandle is removed: path separators, ":"
-// (shown as "/" in Finder) and control characters.
+// (shown as "/" in Finder), control characters and bidi overrides that can
+// disguise a name.
 func SanitizeName(s string) string {
 	s = strings.Map(func(r rune) rune {
-		if r == '/' || r == '\\' || r == ':' || r < 0x20 || r == 0x7f {
+		if r == '/' || r == '\\' || r == ':' || r < 0x20 || (r >= 0x7f && r <= 0x9f) || isBidiControl(r) {
 			return ' '
 		}
 		return r
@@ -47,6 +48,10 @@ func SanitizeName(s string) string {
 		s = strings.TrimRight(s[:cut], ". ")
 	}
 	return s
+}
+
+func isBidiControl(r rune) bool {
+	return (r >= 0x202a && r <= 0x202e) || (r >= 0x2066 && r <= 0x2069)
 }
 
 func PageDir(root string, index int, multi bool) string {

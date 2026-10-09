@@ -153,3 +153,28 @@ func TestColorOnlyWhenEnabled(t *testing.T) {
 		t.Fatalf("colored summary = %q", out.String())
 	}
 }
+
+func TestPageStringsAreStrippedOfControlCharacters(t *testing.T) {
+	p, out, errw := newPlain(Verbose)
+	evil := "T\x1b]52;c;QUJD\x07‮evil⁦\x9b31m 한글😀"
+	p.PageStart(1, false, evil, "h\x1bost")
+	p.PageURL("https://e.com/\x1b[2J")
+	p.Image(Downloaded, "https://e.com/\x1b[2J", "001.jpg")
+	p.Image(Failed, "https://e.com/\x07", "bad\x1b[31m")
+	p.Stopped("could not read page: \x1b]0;x\x07", true)
+	p.Done(1, false, Counts{Fail: 1}, []string{"https://e.com/\x1b[2J"})
+
+	for name, s := range map[string]string{"out": out.String(), "err": errw.String()} {
+		for _, r := range s {
+			if r == '\n' {
+				continue
+			}
+			if r < 0x20 || (r >= 0x7f && r <= 0x9f) || (r >= 0x202a && r <= 0x202e) || (r >= 0x2066 && r <= 0x2069) {
+				t.Fatalf("%s contains control %U: %q", name, r, s)
+			}
+		}
+	}
+	if !strings.Contains(out.String(), "한글😀") {
+		t.Fatalf("printable Unicode lost: %q", out.String())
+	}
+}

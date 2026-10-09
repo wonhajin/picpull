@@ -12,12 +12,15 @@ func TestSanitizeName(t *testing.T) {
 	// picpull targets macOS and Linux: only path separators, ":" and
 	// control characters must go. "|" and "?" are legal there.
 	cases := map[string]string{
-		"Episode 12 | Site": "Episode 12 | Site",
-		"a/b:c\\d":          "a b c d",
-		"  ..hidden.  ":     "hidden",
-		"tab\tand\nnewline": "tab and newline",
-		"이모지 😀 제목":          "이모지 😀 제목",
-		"":                  "",
+		"Episode 12 | Site":   "Episode 12 | Site",
+		"a/b:c\\d":            "a b c d",
+		"  ..hidden.  ":       "hidden",
+		"tab\tand\nnewline":   "tab and newline",
+		"이모지 😀 제목":            "이모지 😀 제목",
+		"":                    "",
+		"a\x1b]52;c;x\x07b":   "a ]52;c;x b",
+		"c1\u009bctl\u0085x":  "c1 ctl x",
+		"bidi\u202eexe\u2066": "bidi exe",
 	}
 	for in, want := range cases {
 		if got := SanitizeName(in); got != want {
