@@ -260,7 +260,9 @@ func (s *Session) FetchInPage(url string) ([]byte, string, error) {
 	}
 	ctx, cancel := context.WithTimeout(s.ctx, fetchTimeout)
 	defer cancel()
-	r, err := chromedp.Run(ctx, chromedp.Evaluate[result](call(fetchJS, url), chromedp.EvalAwaitPromise))
+	arg, _ := json.Marshal(url)
+	expr := fmt.Sprintf("(%s)(%s, %d)", fetchJS, arg, fetchTimeout.Milliseconds())
+	r, err := chromedp.Run(ctx, chromedp.Evaluate[result](expr, chromedp.EvalAwaitPromise))
 	if err != nil {
 		return nil, "", err
 	}

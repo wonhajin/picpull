@@ -112,8 +112,9 @@ const markNextJS = `(target) => {
 }`
 
 // fetchJS runs in the page so the request carries the page's cookies and
-// origin. FileReader avoids building a huge string argument list.
-const fetchJS = `(url) => fetch(url, {credentials: 'include'}).then(async r => {
+// origin. FileReader avoids building a huge string argument list. The abort
+// signal ends the request when the caller has stopped waiting.
+const fetchJS = `(url, ms) => fetch(url, {credentials: 'include', signal: AbortSignal.timeout(ms)}).then(async r => {
   if (!r.ok) return {status: r.status, type: '', data: ''};
   const blob = await r.blob();
   const data = await new Promise((ok, fail) => {
