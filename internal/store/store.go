@@ -78,11 +78,15 @@ func PageDir(root string, index int, multi bool) string {
 // Namer hands out file stems for one page folder.
 type Namer struct {
 	keep bool
-	used map[string]int
+	// taken holds every stem handed out, lowercased: APFS ignores case, so
+	// Photo and photo would overwrite each other.
+	taken map[string]bool
+	// next is the next numeric suffix to try for a lowercased base.
+	next map[string]int
 }
 
 func NewNamer(keepNames bool) *Namer {
-	return &Namer{keep: keepNames, used: map[string]int{}}
+	return &Namer{keep: keepNames, taken: map[string]bool{}, next: map[string]int{}}
 }
 
 func (n *Namer) Stem(index int, rawURL string) string {
@@ -92,18 +96,28 @@ func (n *Namer) Stem(index int, rawURL string) string {
 	}
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		return numbered
+		return n.unique(numbered)
 	}
 	base := path.Base(u.Path)
 	base = SanitizeName(strings.TrimSuffix(base, path.Ext(base)))
 	if base == "" {
-		return numbered
+		return n.unique(numbered)
 	}
-	n.used[base]++
-	if c := n.used[base]; c > 1 {
-		return fmt.Sprintf("%s-%d", base, c)
+	return n.unique(base)
+}
+
+// unique returns base, or base-2, base-3, ... when that stem is taken. A
+// generated suffix is checked like any other name, so it never lands on a
+// file whose real name is already "photo-2".
+func (n *Namer) unique(base string) string {
+	key := strings.ToLower(base)
+	stem := base
+	for c := max(n.next[key], 2); n.taken[strings.ToLower(stem)]; c++ {
+		stem = fmt.Sprintf("%s-%d", base, c)
+		n.next[key] = c + 1
 	}
-	return base
+	n.taken[strings.ToLower(stem)] = true
+	return stem
 }
 
 // Exists reports whether a finished file with this stem is in dir. A .part

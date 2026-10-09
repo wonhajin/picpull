@@ -97,6 +97,26 @@ func TestNamer(t *testing.T) {
 	}
 }
 
+func TestNamerAvoidsCollisions(t *testing.T) {
+	k := NewNamer(true)
+	got := []string{
+		k.Stem(1, "https://x/Photo.jpg"),
+		k.Stem(2, "https://x/photo.jpg"),
+		k.Stem(3, "https://x/photo-2.jpg"),
+		k.Stem(4, "https://x/photo.png"),
+		k.Stem(5, "https://x/005.jpg"),
+		k.Stem(6, "https://y/"),
+		k.Stem(7, "https://x/007.jpg"),
+		k.Stem(8, "https://y/"),
+	}
+	want := []string{"Photo", "photo-2", "photo-2-2", "photo-3", "005", "006", "007", "008"}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("stem %d = %q, want %q", i+1, got[i], want[i])
+		}
+	}
+}
+
 func TestExistsIgnoresPart(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "001.jpg.part"), []byte("x"), 0o644)
