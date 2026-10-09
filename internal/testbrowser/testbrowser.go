@@ -12,9 +12,9 @@ import (
 	"github.com/wonhj12/picpull/internal/browser"
 )
 
-// Start skips the test when no browser is available. PICPULL_TEST_BROWSER
+// Find skips the test when no browser is available. PICPULL_TEST_BROWSER
 // points at an executable for machines without Chrome or Chromium installed.
-func Start(t *testing.T) context.Context {
+func Find(t *testing.T) browser.Browser {
 	t.Helper()
 	b := browser.Browser{Name: "Chrome", Path: os.Getenv("PICPULL_TEST_BROWSER")}
 	if b.Path == "" {
@@ -24,7 +24,13 @@ func Start(t *testing.T) context.Context {
 		}
 		b = found
 	}
-	ctx, cancel, err := browser.Start(context.Background(), b)
+	return b
+}
+
+// Start launches the browser from Find and returns its tab context.
+func Start(t *testing.T) context.Context {
+	t.Helper()
+	ctx, cancel, err := browser.Start(context.Background(), Find(t))
 	if err != nil {
 		t.Fatal(err)
 	}
