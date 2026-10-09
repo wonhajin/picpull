@@ -364,3 +364,13 @@ func TestNavigatedOKStopsWhenInterruptedWhilePolling(t *testing.T) {
 		t.Fatalf("polled %d times, stderr = %q", sleeps, h.errw.String())
 	}
 }
+
+func TestInterruptWhileStartingBrowser(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	h := newHarness(t, output.Normal)
+	code := Run(ctx, config.Options{URL: "http://127.0.0.1/", Out: t.TempDir(), Level: output.Normal}, h.deps)
+	if code != 1 || h.errw.String() != "Interrupted.\n" {
+		t.Fatalf("code = %d stderr = %q", code, h.errw.String())
+	}
+}

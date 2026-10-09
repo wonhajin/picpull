@@ -60,12 +60,20 @@ func Run(ctx context.Context, o config.Options, d Deps) int {
 	}
 	bctx, cancel, err := browser.Start(ctx, b)
 	if err != nil {
+		if ctx.Err() != nil {
+			p.Interrupted()
+			return 1
+		}
 		p.Error(err.Error())
 		return 1
 	}
 	defer cancel()
 	s, err := page.New(bctx)
 	if err != nil {
+		if ctx.Err() != nil {
+			p.Interrupted()
+			return 1
+		}
 		p.Error(fmt.Sprintf("could not start Chrome: %v", err))
 		return 1
 	}
