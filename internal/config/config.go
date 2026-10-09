@@ -62,22 +62,22 @@ type flagValues struct {
 }
 
 func newFlagSet(v *flagValues) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("picpull", pflag.ContinueOnError)
-	fs.SetOutput(io.Discard)
-	fs.SortFlags = true
-	fs.StringVarP(&v.out, "out", "o", "", "save into this folder (default: <download-dir>/<page title>)")
-	fs.StringVar(&v.next, "next", "", "follow the next-page button matched by CSS selector or exact text")
-	fs.IntVar(&v.maxPages, "max-pages", 0, "stop after this many pages (0 = no limit)")
-	fs.Float64Var(&v.delay, "delay", 2, "seconds to wait between pages")
-	fs.IntVar(&v.minSize, "min-size", 0, "skip images narrower or shorter than this many pixels")
-	fs.StringVar(&v.in, "in", "", "only images inside the area matched by this CSS selector")
-	fs.StringVar(&v.match, "match", "", "only images whose URL matches this regular expression")
-	fs.BoolVar(&v.allNetwork, "all-network", false, "also save every image the page loaded over the network")
-	fs.BoolVar(&v.keepNames, "keep-names", false, "keep original file names instead of 001, 002, ...")
-	fs.BoolVarP(&v.verbose, "verbose", "v", false, "show every image")
-	fs.BoolVarP(&v.quiet, "quiet", "q", false, "show only the final summary")
-	fs.BoolP("help", "h", false, "show this help")
-	return fs
+	flags := pflag.NewFlagSet("picpull", pflag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	flags.SortFlags = true
+	flags.StringVarP(&v.out, "out", "o", "", "save into this folder (default: <download-dir>/<page title>)")
+	flags.StringVar(&v.next, "next", "", "follow the next-page button matched by CSS selector or exact text")
+	flags.IntVar(&v.maxPages, "max-pages", 0, "stop after this many pages (0 = no limit)")
+	flags.Float64Var(&v.delay, "delay", 2, "seconds to wait between pages")
+	flags.IntVar(&v.minSize, "min-size", 0, "skip images narrower or shorter than this many pixels")
+	flags.StringVar(&v.in, "in", "", "only images inside the area matched by this CSS selector")
+	flags.StringVar(&v.match, "match", "", "only images whose URL matches this regular expression")
+	flags.BoolVar(&v.allNetwork, "all-network", false, "also save every image the page loaded over the network")
+	flags.BoolVar(&v.keepNames, "keep-names", false, "keep original file names instead of 001, 002, ...")
+	flags.BoolVarP(&v.verbose, "verbose", "v", false, "show every image")
+	flags.BoolVarP(&v.quiet, "quiet", "q", false, "show only the final summary")
+	flags.BoolP("help", "h", false, "show this help")
+	return flags
 }
 
 func Usage() string {
@@ -96,18 +96,18 @@ func Parse(args []string, env Env) (Options, error) {
 	}
 
 	var v flagValues
-	fs := newFlagSet(&v)
-	if err := fs.Parse(args); err != nil {
+	flags := newFlagSet(&v)
+	if err := flags.Parse(args); err != nil {
 		return o, err
 	}
 
 	// Check for --help first, before reading config file
-	if h, _ := fs.GetBool("help"); h {
+	if h, _ := flags.GetBool("help"); h {
 		return o, ErrHelp
 	}
 
 	// Check for version command, before reading config file
-	rest := fs.Args()
+	rest := flags.Args()
 	if len(rest) == 1 && rest[0] == "version" {
 		o.ShowVersion = true
 		return o, nil
@@ -139,22 +139,22 @@ func Parse(args []string, env Env) (Options, error) {
 	if v.quiet {
 		o.Level = output.Quiet
 	}
-	if fs.Changed("out") {
+	if flags.Changed("out") {
 		o.Out = expandHome(v.out, env.Home)
 	}
-	if fs.Changed("delay") {
+	if flags.Changed("delay") {
 		o.Delay = time.Duration(v.delay * float64(time.Second))
 	}
-	if fs.Changed("max-pages") {
+	if flags.Changed("max-pages") {
 		o.MaxPages = v.maxPages
 	}
-	if fs.Changed("min-size") {
+	if flags.Changed("min-size") {
 		o.MinSize = v.minSize
 	}
-	if fs.Changed("all-network") {
+	if flags.Changed("all-network") {
 		o.AllNetwork = v.allNetwork
 	}
-	if fs.Changed("keep-names") {
+	if flags.Changed("keep-names") {
 		o.KeepNames = v.keepNames
 	}
 	o.Next, o.In = v.next, v.in
