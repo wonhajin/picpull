@@ -14,9 +14,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/chromedp/chromedp"
+
 	"github.com/wonhj12/picpull/internal/browser"
 	"github.com/wonhj12/picpull/internal/config"
 	"github.com/wonhj12/picpull/internal/output"
+	"github.com/wonhj12/picpull/internal/page"
 	"github.com/wonhj12/picpull/internal/testbrowser"
 )
 
@@ -312,5 +315,52 @@ func TestInterruptRemovesPartsAndReports(t *testing.T) {
 	if strings.Count(h.errw.String(), "Interrupted.") != 1 ||
 		!strings.Contains(h.out.String(), "Done · 0 success · 0 skip · 0 fail") {
 		t.Fatalf("stdout = %s\nstderr = %s", h.out.String(), h.errw.String())
+	}
+}
+
+// blankRunner returns a runner whose tab sits on about:blank, a page with no
+// recorded response, so --next's status check stays unconfirmed.
+func blankRunner(t *testing.T, ctx context.Context, h *harness) *runner {
+	t.Helper()
+	bctx, cancel, err := browser.Start(ctx, testbrowser.Find(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cancel)
+	s, err := page.New(bctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := chromedp.Run(bctx, chromedp.Navigate("about:blank")); err != nil {
+		t.Fatal(err)
+	}
+	return &runner{ctx: ctx, d: h.deps, p: h.deps.Printer, s: s}
+}
+
+func TestNavigatedOKPassesWhenStatusStaysUnknown(t *testing.T) {
+	h := newHarness(t, output.Normal)
+	sleeps := 0
+	h.deps.Sleep = func(context.Context, time.Duration) { sleeps++ }
+	r := blankRunner(t, context.Background(), h)
+	if !r.navigatedOK() {
+		t.Fatalf("navigatedOK = false, want the page processed\n%s", h.errw.String())
+	}
+	if sleeps != statusPolls {
+		t.Fatalf("polled %d times, want %d", sleeps, statusPolls)
+	}
+}
+
+func TestNavigatedOKStopsWhenInterruptedWhilePolling(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	h := newHarness(t, output.Normal)
+	sleeps := 0
+	h.deps.Sleep = func(context.Context, time.Duration) { sleeps++; cancel() }
+	r := blankRunner(t, ctx, h)
+	if r.navigatedOK() {
+		t.Fatal("navigatedOK = true after Ctrl+C")
+	}
+	if sleeps != 1 || strings.Count(h.errw.String(), "Interrupted.") != 1 {
+		t.Fatalf("polled %d times, stderr = %q", sleeps, h.errw.String())
 	}
 }

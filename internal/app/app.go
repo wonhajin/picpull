@@ -183,6 +183,9 @@ func (r *runner) navigatedOK() bool {
 			return true
 		}
 		r.d.Sleep(r.ctx, statusPollWait)
+		if r.interrupted() {
+			return false
+		}
 	}
 	return true
 }
