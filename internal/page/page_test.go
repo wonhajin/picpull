@@ -348,3 +348,75 @@ func TestFetchInPageTimesOut(t *testing.T) {
 		t.Fatalf("returned after %v, want about the timeout", d)
 	}
 }
+
+func TestRequestStartedBeforeResetIsStaleEvenWhenProcessedLater(t *testing.T) {
+	s := &Session{}
+	s.Reset()
+	s.cutoff = 100 // the browser clock at Reset
+	if !s.startedBeforeReset("old", 99.5) {
+		t.Fatal("request from before Reset was not marked stale")
+	}
+	if s.startedBeforeReset("new", 100.5) {
+		t.Fatal("request from after Reset was marked stale")
+	}
+	img := func(id, url string, requestTime float64) network.EventResponseReceived {
+		return network.EventResponseReceived{
+			RequestID: network.RequestID(id),
+			Type:      network.ResourceTypeImage,
+			Response:  &network.Response{URL: url, Status: 200, Timing: &network.ResourceTiming{RequestTime: requestTime}},
+		}
+	}
+	// The response event of a slow request arrives long after Reset, with a
+	// timestamp past the cutoff, but its request started before.
+	slow := img("slow", "http://x/slow.png", 99)
+	slow.Timestamp = 103
+	s.record(slow)
+	s.record(img("fresh", "http://x/fresh.png", 101))
+	if got := strings.Join(s.images, ","); got != "http://x/fresh.png" {
+		t.Fatalf("images = %q", got)
+	}
+}
+
+func TestResetAcrossRedirectAndPushState(t *testing.T) {
+	ts := server(t, map[string]string{
+		"/p1": `<html><body><img src="/hang.png"><button class="next" onclick="location.href='/old.png'">Next</button></body></html>`,
+		"/spa": `<html><body><script>onload=()=>{const h=new Image();h.src='/hang.png?x';document.body.appendChild(h)}</script>
+<button class="next" onclick="history.pushState({},'','/spa2');const i=new Image();i.src='/img/after.png';document.body.appendChild(i)">Next</button></body></html>`,
+	})
+	s, err := New(testbrowser.Start(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Next lands on a redirect chain; the final URL's status must be found.
+	s.Reset()
+	if st, err := s.Open(ts.URL + "/p1"); err != nil || st != 200 {
+		t.Fatalf("Open = %d, %v", st, err)
+	}
+	s.Reset()
+	if res, _, err := s.ClickNext("button.next", 5*time.Second); err != nil || res != NextNavigated {
+		t.Fatalf("ClickNext = %v, %v", res, err)
+	}
+	u, _ := s.URL()
+	if st := statusOf(s, u); st != 200 {
+		t.Fatalf("status of %s = %d", u, st)
+	}
+
+	// An SPA keeps its document: images it loads after Reset stay, while the
+	// slow request it sent just before Reset must not leak in.
+	s.Reset()
+	if st, err := s.Open(ts.URL + "/spa"); err != nil || st != 200 {
+		t.Fatalf("Open = %d, %v", st, err)
+	}
+	s.Reset()
+	if res, _, err := s.ClickNext("button.next", 5*time.Second); err != nil || res != NextNavigated {
+		t.Fatalf("ClickNext = %v, %v", res, err)
+	}
+	time.Sleep(3500 * time.Millisecond) // /hang.png answers after 3s
+	imgs := s.NetworkImages()
+	if len(imgs) != 1 || imgs[0].Src != ts.URL+"/img/after.png" {
+		t.Fatalf("network images = %v, want only after.png", imgs)
+	}
+	if _, ok := s.Status(ts.URL + "/hang.png?x"); ok {
+		t.Fatal("response to a request sent before Reset was recorded")
+	}
+}

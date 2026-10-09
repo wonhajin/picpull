@@ -14,8 +14,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/cdproto/page"
+	"github.com/chromedp/cdproto/performance"
 	"github.com/chromedp/chromedp"
 
 	"github.com/wonhj12/picpull/internal/pick"
@@ -49,6 +51,8 @@ type Session struct {
 	images []string // image response URLs in arrival order
 	seen   map[string]bool
 
+	cutoff float64 // browser clock at the last Reset; 0 when unknown
+
 	reqs  map[network.RequestID]bool // requests seen since Reset
 	stale map[network.RequestID]bool // requests of the page before the last Reset
 }
@@ -72,6 +76,9 @@ func New(ctx context.Context) (*Session, error) {
 				continue
 			}
 			if ev.Request == nil {
+				continue
+			}
+			if s.startedBeforeReset(ev.RequestID, ev.Timestamp.Float64()) {
 				continue
 			}
 			s.recordRequest(ev.RequestID, ev.Request.URL)
@@ -133,6 +140,16 @@ func (s *Session) record(ev network.EventResponseReceived) {
 	if s.stale[ev.RequestID] {
 		return
 	}
+	// A response event is slow to arrive for a request sent before Reset, so
+	// compare when the request itself started.
+	started := ev.Timestamp.Float64()
+	if ev.Response.Timing != nil && ev.Response.Timing.RequestTime > 0 {
+		started = ev.Response.Timing.RequestTime
+	}
+	if s.beforeReset(started) {
+		s.markStale(ev.RequestID)
+		return
+	}
 	s.reqs[ev.RequestID] = true
 	s.resp[ev.RequestID] = response{id: ev.RequestID, status: ev.Response.Status, mime: ev.Response.MimeType}
 	s.addID(ev.Response.URL, ev.RequestID)
@@ -140,6 +157,46 @@ func (s *Session) record(ev network.EventResponseReceived) {
 		s.seen[ev.Response.URL] = true
 		s.images = append(s.images, ev.Response.URL)
 	}
+}
+
+// startedBeforeReset marks the request stale when the browser started it
+// before the last Reset, even if its event is processed only now.
+func (s *Session) startedBeforeReset(id network.RequestID, started float64) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.beforeReset(started) {
+		return false
+	}
+	s.markStale(id)
+	return true
+}
+
+// beforeReset compares a browser timestamp with the clock read at Reset.
+func (s *Session) beforeReset(t float64) bool { return t > 0 && t < s.cutoff }
+
+func (s *Session) markStale(id network.RequestID) {
+	if s.stale == nil {
+		s.stale = map[network.RequestID]bool{}
+	}
+	s.stale[id] = true
+}
+
+// browserNow reads the browser's monotonic clock, the one network events are
+// stamped with. It returns 0 when that is unavailable.
+func (s *Session) browserNow() float64 {
+	if s.ctx == nil {
+		return 0
+	}
+	res, err := chromedp.Call(s.ctx, performance.GetMetrics, cdp.Empty{})
+	if err != nil {
+		return 0
+	}
+	for _, m := range res.Metrics {
+		if m.Name == "Timestamp" {
+			return m.Value
+		}
+	}
+	return 0
 }
 
 // lookup picks the most recent 2xx response for url, else the most recent
@@ -168,11 +225,13 @@ func (s *Session) lookup(url string) (response, bool) {
 func ok2xx(status int64) bool { return status >= 200 && status < 300 }
 
 // Reset forgets the previous page's responses; the browser drops their
-// bodies on navigation anyway. Responses that still arrive for requests made
-// before Reset are ignored.
+// bodies on navigation anyway. Responses to requests the browser started
+// before Reset are ignored, even when their events are processed later.
 func (s *Session) Reset() {
+	cutoff := s.browserNow()
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.cutoff = cutoff
 	s.stale = s.reqs
 	s.reqs = map[network.RequestID]bool{}
 	s.urlIDs = map[string][]network.RequestID{}
