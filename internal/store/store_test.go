@@ -1,0 +1,158 @@
+package store
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"unicode/utf8"
+)
+
+func TestSanitizeName(t *testing.T) {
+	// picpull targets macOS and Linux: only path separators, ":" and
+	// control characters must go. "|" and "?" are legal there.
+	cases := map[string]string{
+		"Episode 12 | Site": "Episode 12 | Site",
+		"a/b:c\\d":          "a b c d",
+		"  ..hidden.  ":     "hidden",
+		"tab\tand\nnewline": "tab and newline",
+		"이모지 😀 제목":          "이모지 😀 제목",
+		"":                  "",
+	}
+	for in, want := range cases {
+		if got := SanitizeName(in); got != want {
+			t.Errorf("SanitizeName(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestSanitizeNameByteLimit(t *testing.T) {
+	// Original case: Hangul repeated (3 bytes each).
+	// 150 bytes is a multiple of 3, so cut never lands mid-rune and backoff is never exercised.
+	long := strings.Repeat("가", 200) // 600 bytes
+	got := SanitizeName(long)
+	if len(got) > 150 {
+		t.Fatalf("len = %d bytes, want <= 150", len(got))
+	}
+	if !strings.HasPrefix(long, got) || strings.ContainsRune(got, '�') {
+		t.Fatalf("cut inside a rune: %q", got)
+	}
+
+	// Case where cut lands mid-rune: "a" (1 byte) + "가" repeated (3 bytes each).
+	// Cut at 150 would land in the middle of a 3-byte Hangul character.
+	// Backoff loop should find the largest rune boundary <= 150, which is byte 148.
+	midRune := "a" + strings.Repeat("가", 100) // 1 + 300 = 301 bytes
+	got = SanitizeName(midRune)
+	if !utf8.ValidString(got) {
+		t.Fatalf("cut inside a rune: %q", got)
+	}
+	if len(got) > 150 {
+		t.Fatalf("len = %d bytes, want <= 150", len(got))
+	}
+	if len(got) != 148 {
+		t.Fatalf("len = %d bytes, want exactly 148 (largest rune boundary <= 150)", len(got))
+	}
+
+	// Case with 4-byte emoji: emoji repeated (4 bytes each).
+	// Cut at 150 could land in the middle of a 4-byte emoji.
+	emoji := strings.Repeat("😀", 50) // 200 bytes
+	got = SanitizeName(emoji)
+	if !utf8.ValidString(got) {
+		t.Fatalf("cut inside a rune: %q", got)
+	}
+	if len(got) > 150 {
+		t.Fatalf("len = %d bytes, want <= 150", len(got))
+	}
+}
+
+func TestPageDir(t *testing.T) {
+	if got := PageDir("/r", 3, false); got != "/r" {
+		t.Errorf("single = %q", got)
+	}
+	if got := PageDir("/r", 3, true); got != filepath.Join("/r", "003") {
+		t.Errorf("multi = %q", got)
+	}
+}
+
+func TestNamer(t *testing.T) {
+	n := NewNamer(false)
+	if got := n.Stem(7, "https://x/a.jpg"); got != "007" {
+		t.Errorf("numbered = %q", got)
+	}
+	k := NewNamer(true)
+	got := []string{
+		k.Stem(1, "https://x/p/photo.jpg?w=300"),
+		k.Stem(2, "https://y/q/photo.png"),
+		k.Stem(3, "https://y/"),
+		k.Stem(4, "https://y/a%20b.webp"),
+	}
+	want := []string{"photo", "photo-2", "003", "a b"}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("keep-names stem %d = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
+func TestExistsIgnoresPart(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "001.jpg.part"), []byte("x"), 0o644)
+	if Exists(dir, "001") {
+		t.Fatal(".part counted as saved")
+	}
+	os.WriteFile(filepath.Join(dir, "001.jpg"), []byte("x"), 0o644)
+	if !Exists(dir, "001") {
+		t.Fatal("saved file not found")
+	}
+	if Exists(dir, "00") || Exists(filepath.Join(dir, "missing"), "001") {
+		t.Fatal("false positive")
+	}
+	os.WriteFile(filepath.Join(dir, "[a].png"), []byte("x"), 0o644)
+	if !Exists(dir, "[a]") {
+		t.Fatal("glob characters in stem broke lookup")
+	}
+	// Directories should not count as existing files
+	os.Mkdir(filepath.Join(dir, "002"), 0o755)
+	if Exists(dir, "002") {
+		t.Fatal("directory counted as saved file")
+	}
+}
+
+func TestExtOf(t *testing.T) {
+	cases := []struct{ url, ct, want string }{
+		{"https://x/a.JPG?w=1", "", ".jpg"},
+		{"https://x/a", "image/webp; charset=x", ".webp"},
+		{"https://x/a", "", ".jpg"},
+		{"https://x/a.png", "image/jpeg", ".png"},
+	}
+	for _, c := range cases {
+		if got := ExtOf(c.url, c.ct); got != c.want {
+			t.Errorf("ExtOf(%q,%q) = %q, want %q", c.url, c.ct, got, c.want)
+		}
+	}
+}
+
+func TestSaveAndRemoveParts(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "a", "b")
+	name, err := Save(dir, "001", "https://x/i", "image/png", []byte("png"))
+	if err != nil || name != "001.png" {
+		t.Fatalf("Save = %q, %v", name, err)
+	}
+	if b, _ := os.ReadFile(filepath.Join(dir, "001.png")); string(b) != "png" {
+		t.Fatalf("content = %q", b)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "001.png.part")); !os.IsNotExist(err) {
+		t.Fatal(".part left behind")
+	}
+	os.WriteFile(filepath.Join(dir, "002.jpg.part"), []byte("x"), 0o644)
+	if err := RemoveParts(dir); err != nil {
+		t.Fatal(err)
+	}
+	entries, _ := os.ReadDir(dir)
+	if len(entries) != 1 || entries[0].Name() != "001.png" {
+		t.Fatalf("entries = %v", entries)
+	}
+	if err := RemoveParts(filepath.Join(dir, "missing")); err != nil {
+		t.Fatalf("missing dir: %v", err)
+	}
+}
