@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"io/fs"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -145,5 +146,36 @@ func TestURLSchemeIsCaseInsensitive(t *testing.T) {
 		if err != nil || o.URL != u {
 			t.Fatalf("Parse(%q) = %q, %v", u, o.URL, err)
 		}
+	}
+}
+
+func TestUsageGolden(t *testing.T) {
+	want, err := os.ReadFile("testdata/usage.golden")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := Usage(); got != string(want) {
+		t.Fatalf("Usage() =\n%s\nwant\n%s", got, want)
+	}
+}
+
+func TestConfigReadErrorOtherThanNotExist(t *testing.T) {
+	e := env(nil, nil)
+	e.ReadFile = func(string) ([]byte, error) { return nil, fs.ErrPermission }
+	_, err := Parse([]string{"https://e.com"}, e)
+	want := "config file /home/u/.config/picpull/config.toml: "
+	if err == nil || !strings.HasPrefix(err.Error(), want) {
+		t.Fatalf("err = %v, want prefix %q", err, want)
+	}
+}
+
+func TestBoolFlagOverridesConfigFile(t *testing.T) {
+	files := map[string]string{"/home/u/.config/picpull/config.toml": "keep-names = true\nall-network = true"}
+	o, err := Parse([]string{"https://e.com", "--keep-names=false", "--all-network=false"}, env(files, nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if o.KeepNames || o.AllNetwork {
+		t.Fatalf("flags did not override config: %+v", o)
 	}
 }

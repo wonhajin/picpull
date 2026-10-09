@@ -1,0 +1,18 @@
+Usage: picpull <url> [flags]
+       picpull version
+
+Download the images on a web page in the order they appear on screen.
+
+Flags:
+      --all-network     also save every image the page loaded over the network
+      --delay float     seconds to wait between pages (default 2)
+  -h, --help            show this help
+      --in string       only images inside the area matched by this CSS selector
+      --keep-names      keep original file names instead of 001, 002, ...
+      --match string    only images whose URL matches this regular expression
+      --max-pages int   stop after this many pages (0 = no limit)
+      --min-size int    skip images narrower or shorter than this many pixels
+      --next string     follow the next-page button matched by CSS selector or exact text
+  -o, --out string      save into this folder (default: <download-dir>/<page title>)
+  -q, --quiet           show only the final summary
+  -v, --verbose         show every image
