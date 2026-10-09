@@ -213,3 +213,28 @@ func TestHeaderAndBarStayWithinNarrowTerminal(t *testing.T) {
 		t.Fatalf("bar lost its count: %q", bar)
 	}
 }
+
+func TestVerboseProgressIsNoOp(t *testing.T) {
+	var out, errw bytes.Buffer
+	p := New(&out, &errw, Verbose, true, false, 80)
+	p.Progress(3, 10)
+	if out.Len() != 0 || errw.Len() != 0 {
+		t.Fatalf("verbose progress printed %q / %q", out.String(), errw.String())
+	}
+}
+
+func TestFoundZero(t *testing.T) {
+	p, out, _ := newPlain(Normal)
+	p.Found(0)
+	if out.String() != "  Found 0 images\n" {
+		t.Fatalf("stdout = %q", out.String())
+	}
+}
+
+func TestQuietWarnIsSilent(t *testing.T) {
+	p, out, errw := newPlain(Quiet)
+	p.Warn("something odd")
+	if out.Len() != 0 || errw.Len() != 0 {
+		t.Fatalf("quiet warn printed %q / %q", out.String(), errw.String())
+	}
+}
