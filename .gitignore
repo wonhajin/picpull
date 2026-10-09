@@ -1,4 +1,6 @@
 dist/
 .superpowers/
+.claude/settings.local.json
+.claude/.cc-writes/
 .DS_Store
 docs/
