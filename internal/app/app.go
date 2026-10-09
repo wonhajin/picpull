@@ -201,6 +201,17 @@ func (r *runner) navigatedOK() bool {
 // savePage collects, filters and saves one page. It returns false on an
 // interrupt or a page error.
 func (r *runner) savePage(dir, pageURL string) bool {
+	// Reject a bad selector before the slow scroll.
+	if r.o.In != "" {
+		valid, err := r.s.ValidSelector(r.o.In)
+		if err != nil {
+			return r.readFailed(err)
+		}
+		if !valid {
+			r.p.Stopped("invalid --in selector: "+r.o.In, true)
+			return false
+		}
+	}
 	if err := r.s.Scroll(); err != nil {
 		return r.readFailed(err)
 	}

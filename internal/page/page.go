@@ -208,6 +208,11 @@ func call(fn, arg string) string {
 	return fmt.Sprintf("(%s)(%s)", fn, b)
 }
 
+// ValidSelector reports whether sel parses as a CSS selector.
+func (s *Session) ValidSelector(sel string) (bool, error) {
+	return chromedp.Run(s.ctx, chromedp.Evaluate[bool](call(validSelectorJS, sel)))
+}
+
 func (s *Session) Collect(in string) ([]pick.Raw, bool, error) {
 	type result struct {
 		Invalid bool       `json:"invalid"`

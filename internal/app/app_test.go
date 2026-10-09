@@ -374,3 +374,14 @@ func TestInterruptWhileStartingBrowser(t *testing.T) {
 		t.Fatalf("code = %d stderr = %q", code, h.errw.String())
 	}
 }
+
+func TestInvalidInSelectorStops(t *testing.T) {
+	ts := site(t)
+	h := newHarness(t, output.Normal)
+	o := config.Options{URL: ts.URL + "/ep/1", Out: t.TempDir(), In: "#(", Level: output.Normal}
+	code := Run(context.Background(), o, h.deps)
+	if code != 1 || !strings.Contains(h.errw.String(), "Stopped: invalid --in selector: #(") ||
+		strings.Contains(h.out.String(), "Found ") {
+		t.Fatalf("code = %d stdout = %s stderr = %s", code, h.out.String(), h.errw.String())
+	}
+}

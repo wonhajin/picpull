@@ -138,6 +138,12 @@ func TestCollectScope(t *testing.T) {
 	if _, invalid, err := s.Collect("#("); err != nil || !invalid {
 		t.Fatalf("invalid selector: %v %v", invalid, err)
 	}
+	if ok, err := s.ValidSelector("#("); err != nil || ok {
+		t.Fatalf("ValidSelector(#() = %v, %v", ok, err)
+	}
+	if ok, err := s.ValidSelector("#main img"); err != nil || !ok {
+		t.Fatalf("ValidSelector(#main img) = %v, %v", ok, err)
+	}
 }
 
 func TestCapturedFollowsRedirect(t *testing.T) {

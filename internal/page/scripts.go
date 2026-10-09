@@ -44,6 +44,12 @@ const scrollJS = `(async () => {
   return true;
 })()`
 
+// validSelectorJS is called with the --in selector.
+const validSelectorJS = `(sel) => {
+  try { document.querySelectorAll(sel); return true; }
+  catch (e) { return false; }
+}`
+
 // collectJS is called with the --in selector (or "").
 const collectJS = `(sel) => {
   let scope = null;
