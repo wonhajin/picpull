@@ -34,6 +34,10 @@ func TestPickSrcset(t *testing.T) {
 		"a.jpg 1x, b.jpg 2x":                  "b.jpg",
 		"a.jpg, b.jpg":                        "b.jpg",
 		"":                                    "",
+		// URLs with commas (e.g., CDN URLs like Cloudinary)
+		"https://res.cloudinary.com/x/image/upload/w_100,h_100/a.jpg 100w, https://res.cloudinary.com/x/image/upload/w_800,h_800/a.jpg 800w": "https://res.cloudinary.com/x/image/upload/w_800,h_800/a.jpg",
+		"a.jpg,b.jpg 100w": "a.jpg,b.jpg",
+		"a.jpg, b.jpg 2x":  "b.jpg",
 	}
 	for in, want := range cases {
 		if got := PickSrcset(in); got != want {

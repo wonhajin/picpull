@@ -104,26 +104,56 @@ func absolute(base *url.URL, ref string) string {
 }
 
 // PickSrcset returns the largest candidate by its w or x descriptor, or the
-// last one when none has a descriptor.
+// last one when none has a descriptor. Parses per HTML srcset grammar to
+// handle URLs containing commas (e.g., CDN URLs).
+// Note: a URL ending in comma has no descriptor; commas inside a URL are kept.
 func PickSrcset(srcset string) string {
 	best, bestN := "", -1.0
-	for _, part := range strings.Split(srcset, ",") {
-		fields := strings.Fields(part)
-		if len(fields) == 0 {
-			continue
+	for i := 0; i < len(srcset); {
+		for i < len(srcset) && (isSpace(srcset[i]) || srcset[i] == ',') {
+			i++
 		}
+		if i >= len(srcset) {
+			break
+		}
+
+		urlStart := i
+		for i < len(srcset) && !isSpace(srcset[i]) {
+			i++
+		}
+		url := srcset[urlStart:i]
+
+		hasTrailingComma := strings.HasSuffix(url, ",")
+		url = strings.TrimRight(url, ",")
+
 		n := 0.0
-		if len(fields) > 1 {
-			d := fields[1]
-			if v, err := strconv.ParseFloat(d[:len(d)-1], 64); err == nil {
-				n = v
+		if !hasTrailingComma {
+			for i < len(srcset) && isSpace(srcset[i]) {
+				i++
+			}
+
+			descStart := i
+			for i < len(srcset) && srcset[i] != ',' {
+				i++
+			}
+			desc := strings.TrimSpace(srcset[descStart:i])
+
+			if desc != "" {
+				if v, err := strconv.ParseFloat(desc[:len(desc)-1], 64); err == nil {
+					n = v
+				}
 			}
 		}
+
 		if n >= bestN {
-			best, bestN = fields[0], n
+			best, bestN = url, n
 		}
 	}
 	return best
+}
+
+func isSpace(b byte) bool {
+	return b == ' ' || b == '\t' || b == '\n' || b == '\r' || b == '\f'
 }
 
 // Select filters, sorts by screen position and removes duplicates. Positioned
