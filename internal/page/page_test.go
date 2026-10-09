@@ -39,6 +39,11 @@ func server(t *testing.T, pages map[string]string) *httptest.Server {
 		case <-time.After(3 * time.Second):
 		}
 	})
+	mux.HandleFunc("/shared.png", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/png")
+		w.Header().Set("Cache-Control", "max-age=3600")
+		w.Write(testbrowser.PNG(30, 40))
+	})
 	mux.HandleFunc("/img/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "image/png")
 		w.Write(testbrowser.PNG(30, 40))
@@ -353,27 +358,74 @@ func TestRequestStartedBeforeResetIsStaleEvenWhenProcessedLater(t *testing.T) {
 	s := &Session{}
 	s.Reset()
 	s.cutoff = 100 // the browser clock at Reset
-	if !s.startedBeforeReset("old", 99.5) {
-		t.Fatal("request from before Reset was not marked stale")
-	}
-	if s.startedBeforeReset("new", 100.5) {
-		t.Fatal("request from after Reset was marked stale")
-	}
-	img := func(id, url string, requestTime float64) network.EventResponseReceived {
+	img := func(id, url string) network.EventResponseReceived {
 		return network.EventResponseReceived{
 			RequestID: network.RequestID(id),
 			Type:      network.ResourceTypeImage,
-			Response:  &network.Response{URL: url, Status: 200, Timing: &network.ResourceTiming{RequestTime: requestTime}},
+			Response:  &network.Response{URL: url, Status: 200},
 		}
 	}
-	// The response event of a slow request arrives long after Reset, with a
-	// timestamp past the cutoff, but its request started before.
-	slow := img("slow", "http://x/slow.png", 99)
-	slow.Timestamp = 103
-	s.record(slow)
-	s.record(img("fresh", "http://x/fresh.png", 101))
+	// The response beats its request event, so it is recorded first and must
+	// be taken back once the request turns out to predate Reset.
+	s.record(img("slow", "http://x/slow.png"))
+	s.recordRequest("slow", "http://x/slow.png")
+	if !s.startedBeforeReset("slow", 99.5) {
+		t.Fatal("request from before Reset was not marked stale")
+	}
+	if _, ok := s.Status("http://x/slow.png"); ok || len(s.images) != 0 || s.seen["http://x/slow.png"] {
+		t.Fatalf("stale request left records: images=%v", s.images)
+	}
+	// A response that arrives after its stale request event is dropped.
+	s.record(img("slow", "http://x/slow.png"))
+	if len(s.images) != 0 {
+		t.Fatalf("images = %v", s.images)
+	}
+	if s.startedBeforeReset("fresh", 100.5) {
+		t.Fatal("request from after Reset was marked stale")
+	}
+	s.record(img("fresh", "http://x/fresh.png"))
 	if got := strings.Join(s.images, ","); got != "http://x/fresh.png" {
 		t.Fatalf("images = %q", got)
+	}
+}
+
+func TestResetReadsBrowserClock(t *testing.T) {
+	s, err := New(testbrowser.Start(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if now := s.browserNow(); now <= 0 {
+		t.Fatalf("browserNow = %v", now)
+	}
+	s.Reset()
+	if s.cutoff <= 0 {
+		t.Fatalf("cutoff after Reset = %v", s.cutoff)
+	}
+}
+
+func TestCachedImageSharedByNextPageIsKept(t *testing.T) {
+	ts := server(t, map[string]string{
+		"/a": `<html><body><img src="/shared.png"><button class="next" onclick="location.href='/b'">Next</button></body></html>`,
+		"/b": `<html><body><img src="/shared.png"></body></html>`,
+	})
+	s, err := New(testbrowser.Start(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Reset()
+	if st, err := s.Open(ts.URL + "/a"); err != nil || st != 200 {
+		t.Fatalf("Open = %d, %v", st, err)
+	}
+	s.Reset()
+	if res, _, err := s.ClickNext("button.next", 5*time.Second); err != nil || res != NextNavigated {
+		t.Fatalf("ClickNext = %v, %v", res, err)
+	}
+	if st := statusOf(s, ts.URL+"/shared.png"); st != 200 {
+		t.Fatalf("status of shared.png = %d", st)
+	}
+	imgs := s.NetworkImages()
+	if len(imgs) != 1 || imgs[0].Src != ts.URL+"/shared.png" {
+		t.Fatalf("network images = %v, want shared.png", imgs)
 	}
 }
 

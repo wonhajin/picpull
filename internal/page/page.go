@@ -38,6 +38,7 @@ const (
 
 type response struct {
 	id     network.RequestID
+	url    string
 	status int64
 	mime   string
 }
@@ -45,11 +46,12 @@ type response struct {
 type Session struct {
 	ctx context.Context
 
-	mu     sync.Mutex
-	urlIDs map[string][]network.RequestID // request ids seen under each URL, oldest first
-	resp   map[network.RequestID]response
-	images []string // image response URLs in arrival order
-	seen   map[string]bool
+	mu      sync.Mutex
+	urlIDs  map[string][]network.RequestID // request ids seen under each URL, oldest first
+	resp    map[network.RequestID]response
+	images  []string // image response URLs in arrival order
+	seen    map[string]bool
+	imageBy map[string]network.RequestID // request that first reported each image URL
 
 	cutoff float64 // browser clock at the last Reset; 0 when unknown
 
@@ -59,11 +61,16 @@ type Session struct {
 
 func New(ctx context.Context) (*Session, error) {
 	s := &Session{ctx: ctx}
-	s.Reset()
 	if _, err := chromedp.Call(ctx, page.AddScriptToEvaluateOnNewDocument,
 		page.AddScriptToEvaluateOnNewDocumentParams{Source: hookJS}); err != nil {
 		return nil, err
 	}
+	// getMetrics, which Reset reads the browser clock from, is empty until
+	// the domain is enabled.
+	if _, err := chromedp.Call(ctx, performance.Enable, performance.EnableParams{}); err != nil {
+		return nil, err
+	}
+	s.Reset()
 	// Subscribe before any navigation; the iterators buffer events.
 	requests := chromedp.Events(ctx, network.RequestWillBeSent)
 	responses := chromedp.Events(ctx, network.ResponseReceived)
@@ -140,22 +147,13 @@ func (s *Session) record(ev network.EventResponseReceived) {
 	if s.stale[ev.RequestID] {
 		return
 	}
-	// A response event is slow to arrive for a request sent before Reset, so
-	// compare when the request itself started.
-	started := ev.Timestamp.Float64()
-	if ev.Response.Timing != nil && ev.Response.Timing.RequestTime > 0 {
-		started = ev.Response.Timing.RequestTime
-	}
-	if s.beforeReset(started) {
-		s.markStale(ev.RequestID)
-		return
-	}
 	s.reqs[ev.RequestID] = true
-	s.resp[ev.RequestID] = response{id: ev.RequestID, status: ev.Response.Status, mime: ev.Response.MimeType}
+	s.resp[ev.RequestID] = response{id: ev.RequestID, url: ev.Response.URL, status: ev.Response.Status, mime: ev.Response.MimeType}
 	s.addID(ev.Response.URL, ev.RequestID)
 	if ev.Type == network.ResourceTypeImage && ok2xx(ev.Response.Status) && !s.seen[ev.Response.URL] {
 		s.seen[ev.Response.URL] = true
 		s.images = append(s.images, ev.Response.URL)
+		s.imageBy[ev.Response.URL] = ev.RequestID
 	}
 }
 
@@ -168,7 +166,24 @@ func (s *Session) startedBeforeReset(id network.RequestID, started float64) bool
 		return false
 	}
 	s.markStale(id)
+	s.purge(id)
 	return true
+}
+
+// purge forgets what a response that beat its request event already
+// recorded for id.
+func (s *Session) purge(id network.RequestID) {
+	r, ok := s.resp[id]
+	delete(s.resp, id)
+	delete(s.reqs, id)
+	for url, ids := range s.urlIDs {
+		s.urlIDs[url] = slices.DeleteFunc(ids, func(x network.RequestID) bool { return x == id })
+	}
+	if ok && s.imageBy[r.url] == id {
+		delete(s.imageBy, r.url)
+		delete(s.seen, r.url)
+		s.images = slices.DeleteFunc(s.images, func(u string) bool { return u == r.url })
+	}
 }
 
 // beforeReset compares a browser timestamp with the clock read at Reset.
@@ -238,6 +253,7 @@ func (s *Session) Reset() {
 	s.resp = map[network.RequestID]response{}
 	s.images = nil
 	s.seen = map[string]bool{}
+	s.imageBy = map[string]network.RequestID{}
 }
 
 func (s *Session) Open(url string) (int64, error) {
