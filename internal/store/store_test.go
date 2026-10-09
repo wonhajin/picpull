@@ -30,8 +30,7 @@ func TestSanitizeName(t *testing.T) {
 }
 
 func TestSanitizeNameByteLimit(t *testing.T) {
-	// Original case: Hangul repeated (3 bytes each).
-	// 150 bytes is a multiple of 3, so cut never lands mid-rune and backoff is never exercised.
+	// 150 is a multiple of 3, so this cut lands on a rune boundary.
 	long := strings.Repeat("가", 200) // 600 bytes
 	got := SanitizeName(long)
 	if len(got) > 150 {
@@ -135,7 +134,9 @@ func TestExistsIgnoresPart(t *testing.T) {
 		t.Fatal("glob characters in stem broke lookup")
 	}
 	// Directories should not count as existing files
-	os.Mkdir(filepath.Join(dir, "002"), 0o755)
+	if err := os.Mkdir(filepath.Join(dir, "002"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	if Exists(dir, "002") {
 		t.Fatal("directory counted as saved file")
 	}
