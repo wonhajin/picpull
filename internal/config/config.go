@@ -143,7 +143,7 @@ func Parse(args []string, env Env) (Options, error) {
 		o.Out = expandHome(v.out, env.Home)
 	}
 	if flags.Changed("delay") {
-		o.Delay = time.Duration(v.delay * float64(time.Second))
+		o.Delay = seconds(v.delay)
 	}
 	if flags.Changed("max-pages") {
 		o.MaxPages = v.maxPages
@@ -168,10 +168,21 @@ func Parse(args []string, env Env) (Options, error) {
 	return o, validate(o)
 }
 
+const maxDelay = time.Hour
+
+// seconds maps out-of-range values (including NaN and ones that would
+// overflow time.Duration) to -1 so validate rejects them.
+func seconds(s float64) time.Duration {
+	if !(s >= 0 && s <= maxDelay.Seconds()) {
+		return -1
+	}
+	return time.Duration(s * float64(time.Second))
+}
+
 func validate(o Options) error {
 	switch {
 	case o.Delay < 0:
-		return errors.New("--delay must not be negative")
+		return fmt.Errorf("--delay must be between 0 and %d", int(maxDelay.Seconds()))
 	case o.MaxPages < 0:
 		return errors.New("--max-pages must not be negative")
 	case o.MinSize < 0:
@@ -208,7 +219,7 @@ func applyFile(o *Options, env Env) error {
 		o.DownloadDir = expandHome(*fc.DownloadDir, env.Home)
 	}
 	if fc.Delay != nil {
-		o.Delay = time.Duration(*fc.Delay * float64(time.Second))
+		o.Delay = seconds(*fc.Delay)
 	}
 	if fc.MaxPages != nil {
 		o.MaxPages = *fc.MaxPages
