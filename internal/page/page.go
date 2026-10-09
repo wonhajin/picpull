@@ -22,6 +22,11 @@ import (
 	"github.com/wonhj12/picpull/internal/pick"
 )
 
+const (
+	eventErrorWait = 100 * time.Millisecond
+	fetchTimeout   = 30 * time.Second
+)
+
 type NextResult int
 
 const (
@@ -62,7 +67,7 @@ func New(ctx context.Context) (*Session, error) {
 	go func() {
 		for ev, err := range requests {
 			if err != nil {
-				if s.ctx.Err() != nil {
+				if !s.backoff() {
 					return
 				}
 				continue
@@ -76,7 +81,7 @@ func New(ctx context.Context) (*Session, error) {
 	go func() {
 		for ev, err := range responses {
 			if err != nil {
-				if s.ctx.Err() != nil {
+				if !s.backoff() {
 					return
 				}
 				continue
@@ -85,6 +90,17 @@ func New(ctx context.Context) (*Session, error) {
 		}
 	}()
 	return s, nil
+}
+
+// backoff pauses after an event error so a failing iterator cannot spin. It
+// returns false once the session is over.
+func (s *Session) backoff() bool {
+	select {
+	case <-s.ctx.Done():
+		return false
+	case <-time.After(eventErrorWait):
+		return true
+	}
 }
 
 // addID files id under url once.
