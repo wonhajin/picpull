@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
@@ -43,6 +44,9 @@ type Session struct {
 	resp   map[network.RequestID]response
 	images []string // image response URLs in arrival order
 	seen   map[string]bool
+
+	loaders map[cdp.LoaderID]bool // loaders that recorded a response since Reset
+	stale   map[cdp.LoaderID]bool // loaders of pages that were reset away
 }
 
 func New(ctx context.Context) (*Session, error) {
@@ -106,6 +110,11 @@ func (s *Session) record(ev network.EventResponseReceived) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	// A late response of the page that was reset away belongs to no one.
+	if s.stale[ev.LoaderID] {
+		return
+	}
+	s.loaders[ev.LoaderID] = true
 	s.resp[ev.RequestID] = response{id: ev.RequestID, status: ev.Response.Status, mime: ev.Response.MimeType}
 	s.addID(ev.Response.URL, ev.RequestID)
 	if ev.Type == network.ResourceTypeImage && ok2xx(ev.Response.Status) && !s.seen[ev.Response.URL] {
@@ -140,10 +149,18 @@ func (s *Session) lookup(url string) (response, bool) {
 func ok2xx(status int64) bool { return status >= 200 && status < 300 }
 
 // Reset forgets the previous page's responses; the browser drops their
-// bodies on navigation anyway.
+// bodies on navigation anyway. Responses that still arrive from the old
+// page's loaders are ignored.
 func (s *Session) Reset() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.stale == nil {
+		s.stale = map[cdp.LoaderID]bool{}
+	}
+	for l := range s.loaders {
+		s.stale[l] = true
+	}
+	s.loaders = map[cdp.LoaderID]bool{}
 	s.urlIDs = map[string][]network.RequestID{}
 	s.resp = map[network.RequestID]response{}
 	s.images = nil

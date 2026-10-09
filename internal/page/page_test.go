@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/network"
 
 	"github.com/wonhj12/picpull/internal/pick"
@@ -296,5 +297,28 @@ func TestLookupIsOrderIndependent(t *testing.T) {
 	s.record(ev)
 	if len(s.images) != 1 {
 		t.Fatalf("images = %v", s.images)
+	}
+}
+
+func TestLateResponseOfResetPageIsDropped(t *testing.T) {
+	s := &Session{}
+	s.Reset()
+	img := func(id, loader, url string) network.EventResponseReceived {
+		return network.EventResponseReceived{
+			RequestID: network.RequestID(id),
+			LoaderID:  cdp.LoaderID(loader),
+			Type:      network.ResourceTypeImage,
+			Response:  &network.Response{URL: url, Status: 200, MimeType: "image/png"},
+		}
+	}
+	s.record(img("a1", "A", "http://x/a1.png"))
+	s.Reset()
+	s.record(img("a2", "A", "http://x/a2.png")) // trails in after the navigation started
+	s.record(img("b1", "B", "http://x/b1.png"))
+	if got := strings.Join(s.images, ","); got != "http://x/b1.png" {
+		t.Fatalf("images = %q, want only the new page's", got)
+	}
+	if _, ok := s.Status("http://x/a2.png"); ok {
+		t.Fatal("late response of the old page was recorded")
 	}
 }
