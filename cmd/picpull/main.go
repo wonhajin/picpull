@@ -14,10 +14,10 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/wonhj12/picpull/internal/app"
-	"github.com/wonhj12/picpull/internal/browser"
-	"github.com/wonhj12/picpull/internal/config"
-	"github.com/wonhj12/picpull/internal/output"
+	"github.com/wonhajin/picpull/internal/app"
+	"github.com/wonhajin/picpull/internal/browser"
+	"github.com/wonhajin/picpull/internal/config"
+	"github.com/wonhajin/picpull/internal/output"
 )
 
 // version is set at build time with -ldflags "-X main.version=...".

@@ -11,8 +11,8 @@ import (
 
 	"github.com/chromedp/cdproto/network"
 
-	"github.com/wonhj12/picpull/internal/pick"
-	"github.com/wonhj12/picpull/internal/testbrowser"
+	"github.com/wonhajin/picpull/internal/pick"
+	"github.com/wonhajin/picpull/internal/testbrowser"
 )
 
 func server(t *testing.T, pages map[string]string) *httptest.Server {

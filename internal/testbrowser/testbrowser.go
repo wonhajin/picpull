@@ -9,7 +9,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/wonhj12/picpull/internal/browser"
+	"github.com/wonhajin/picpull/internal/browser"
 )
 
 // Find skips the test when no browser is available. PICPULL_TEST_BROWSER

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/wonhj12/picpull/internal/output"
+	"github.com/wonhajin/picpull/internal/output"
 )
 
 func env(files map[string]string, vars map[string]string) Env {

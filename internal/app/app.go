@@ -12,12 +12,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/wonhj12/picpull/internal/browser"
-	"github.com/wonhj12/picpull/internal/config"
-	"github.com/wonhj12/picpull/internal/output"
-	"github.com/wonhj12/picpull/internal/page"
-	"github.com/wonhj12/picpull/internal/pick"
-	"github.com/wonhj12/picpull/internal/store"
+	"github.com/wonhajin/picpull/internal/browser"
+	"github.com/wonhajin/picpull/internal/config"
+	"github.com/wonhajin/picpull/internal/output"
+	"github.com/wonhajin/picpull/internal/page"
+	"github.com/wonhajin/picpull/internal/pick"
+	"github.com/wonhajin/picpull/internal/store"
 )
 
 const (

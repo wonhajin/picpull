@@ -21,4 +21,4 @@ go test -race ./internal/page ./internal/app
 
 ## 워크플로 (레포 고유)
 
-- 릴리스는 `main` 머지가 아니라 **`v*` 태그 push**로 발동한다(`.github/workflows/release.yml` → GoReleaser → GitHub Release + `wonhj12/homebrew-tap` cask). 태그는 사용자가 만든다.
+- 릴리스는 `main` 머지가 아니라 **`v*` 태그 push**로 발동한다(`.github/workflows/release.yml` → GoReleaser → GitHub Release + `wonhajin/homebrew-tap` cask). 태그는 사용자가 만든다.
