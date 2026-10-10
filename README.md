@@ -94,3 +94,7 @@ Allowed keys: `download-dir`, `delay`, `max-pages`, `min-size`, `keep-names`, `a
 | 0 | all images saved |
 | 1 | some images failed, the page could not be loaded, or interrupted |
 | 2 | invalid flags |
+
+## License
+
+[MIT](LICENSE)
