@@ -15,7 +15,7 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/spf13/pflag"
 
-	"github.com/wonhj12/picpull/internal/output"
+	"github.com/wonhajin/picpull/internal/output"
 )
 
 var ErrHelp = pflag.ErrHelp

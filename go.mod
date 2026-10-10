@@ -1,4 +1,4 @@
-module github.com/wonhj12/picpull
+module github.com/wonhajin/picpull
 
 go 1.27.2
 

@@ -14,13 +14,13 @@ picpull opens the page in Google Chrome, scrolls through it so lazy-loaded image
 ## Install
 
 ```sh
-brew install wonhj12/tap/picpull
+brew install wonhajin/tap/picpull
 ```
 
 Or with Go:
 
 ```sh
-go install github.com/wonhj12/picpull/cmd/picpull@latest
+go install github.com/wonhajin/picpull/cmd/picpull@latest
 ```
 
 ## Usage

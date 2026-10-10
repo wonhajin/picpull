@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/wonhj12/picpull/internal/page"
+	"github.com/wonhajin/picpull/internal/page"
 )
 
 const attempts = 3

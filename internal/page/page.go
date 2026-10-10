@@ -20,7 +20,7 @@ import (
 	"github.com/chromedp/cdproto/performance"
 	"github.com/chromedp/chromedp"
 
-	"github.com/wonhj12/picpull/internal/pick"
+	"github.com/wonhajin/picpull/internal/pick"
 )
 
 const eventErrorWait = 100 * time.Millisecond

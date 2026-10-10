@@ -21,10 +21,10 @@ checksum:
 homebrew_casks:
   - name: picpull
     binaries: [picpull]
-    homepage: https://github.com/wonhj12/picpull
+    homepage: https://github.com/wonhajin/picpull
     description: Download the images on a web page in on-screen order
     repository:
-      owner: wonhj12
+      owner: wonhajin
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     hooks:

@@ -16,11 +16,11 @@ import (
 
 	"github.com/chromedp/chromedp"
 
-	"github.com/wonhj12/picpull/internal/browser"
-	"github.com/wonhj12/picpull/internal/config"
-	"github.com/wonhj12/picpull/internal/output"
-	"github.com/wonhj12/picpull/internal/page"
-	"github.com/wonhj12/picpull/internal/testbrowser"
+	"github.com/wonhajin/picpull/internal/browser"
+	"github.com/wonhajin/picpull/internal/config"
+	"github.com/wonhajin/picpull/internal/output"
+	"github.com/wonhajin/picpull/internal/page"
+	"github.com/wonhajin/picpull/internal/testbrowser"
 )
 
 type harness struct {
