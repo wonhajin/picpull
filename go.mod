@@ -9,7 +9,7 @@ require (
 	github.com/spf13/pflag v1.0.10
 	golang.org/x/image v0.46.0
 	golang.org/x/term v0.46.0
-	golang.org/x/text v0.42.0
+	golang.org/x/text v0.43.0
 )
 
 require (
